@@ -1,0 +1,104 @@
+{
+  "projectType": "saas",
+  "projectName": "SGD-MCS",
+  "projectDescription": "A modular document management system for managing Master's program documentation, student records, thesis tracking, and institutional self-evaluation processes.",
+  "theme": "maple",
+  "primaryColor": "#4285F4",
+  "lightColor": "#64B5F6",
+  "darkColor": "#1565C0",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/dashboard",
+              "features/student-management",
+              "features/teacher-management",
+              "features/thesis-tracking",
+              "features/document-repository",
+              "features/event-management"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/managing-entities",
+              "guides/document-upload",
+              "guides/drive-integration",
+              "guides/search-functionality",
+              "guides/import-export"
+            ]
+          },
+          {
+            "group": "Administration",
+            "pages": [
+              "admin/configuration",
+              "admin/google-apps-script",
+              "admin/database-structure",
+              "admin/permissions"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Backend API",
+            "pages": [
+              "api/overview",
+              "api/entity-manager",
+              "api/drive-manager",
+              "api/search-service",
+              "api/data-service"
+            ]
+          },
+          {
+            "group": "Frontend Components",
+            "pages": [
+              "components/overview",
+              "components/custom-select",
+              "components/folder-explorer",
+              "components/document-upload"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Student and Teacher Management",
+    "Thesis and Research Tracking",
+    "Document Repository with Google Drive Integration",
+    "Dashboard Analytics and Reporting",
+    "Universal Search Functionality",
+    "Event and External Participant Management",
+    "Bulk Import/Export Operations",
+    "Self-Evaluation Documentation System"
+  ],
+  "publicApiSurface": [
+    "createItem(type, data)",
+    "updateItem(type, id, data)",
+    "deleteItem(type, id)",
+    "getStudents()",
+    "getTeachers()",
+    "getThesis()",
+    "getEvents()",
+    "searchUniversal(query, context)",
+    "uploadFile(parentFolderId, file)",
+    "getFolderStructure(folderId)",
+    "getDashboardStats()"
+  ]
+}
