@@ -1,0 +1,317 @@
+---
+title: "SearchService"
+description: "Universal search across database entities"
+---
+
+## Overview
+
+SearchService provides intelligent search functionality across students, teachers, thesis, events, and external evaluators. It performs case-insensitive searches across multiple fields and returns formatted results optimized for UI display.
+
+**Source**: `~/workspace/source/Backend/services/SearchService.js`
+
+<Note>
+For searching **files and folders in Drive**, see the [DriveManager](/api/drive-manager) API documentation.
+</Note>
+
+---
+
+## executeSearch
+
+Performs a universal search across a specific entity type.
+
+<ParamField path="query" type="string" required>
+  Search query text (case-insensitive)
+</ParamField>
+
+<ParamField path="context" type="string" required>
+  Entity type to search: `estudiante` or `tesis`
+</ParamField>
+
+<ResponseField name="results" type="string" required>
+  JSON string containing array of matching results
+</ResponseField>
+
+### Return Format by Context
+
+<Accordion title="estudiante (Student) Results">
+  Each result contains:
+  ```javascript
+  {
+    id: string,           // Student ID (e.g., "EST0001")
+    nombre: string,       // Full name (all name fields combined)
+    cedula: string,       // ID number
+    programa: string,     // Cohort info (e.g., "Cohorte 2024-1")
+    email: string,        // Email address
+    estado: string        // Status
+  }
+  ```
+
+  **Searchable fields:**
+  - `Nombre1` (first name)
+  - `Apellido1` (last name)
+  - `Cedula` (ID number)
+</Accordion>
+
+<Accordion title="tesis (Thesis) Results">
+  Each result contains:
+  ```javascript
+  {
+    id: string,              // Thesis ID (e.g., "TES0001")
+    titulo: string,          // Research title
+    nota: number,            // Grade/score
+    estudiante: string       // Student name or "Estudiante no registrado"
+  }
+  ```
+
+  **Searchable fields:**
+  - `Titulo_Investigacion` (thesis title)
+</Accordion>
+
+### Example
+
+```javascript
+// Search for students by name or ID
+google.script.run
+  .withSuccessHandler((jsonResults) => {
+    const students = JSON.parse(jsonResults);
+    console.log(`Found ${students.length} students`);
+    
+    students.forEach(student => {
+      console.log(`${student.nombre} - ${student.cedula}`);
+      console.log(`  Email: ${student.email}`);
+      console.log(`  Program: ${student.programa}`);
+      console.log(`  Status: ${student.estado}`);
+    });
+  })
+  .executeSearch('Juan', 'estudiante');
+
+// Output:
+// Found 2 students
+// Juan Carlos Pérez García - 1234567890
+//   Email: juan.perez@example.com
+//   Program: Cohorte 2024-1
+//   Status: Activo
+// María Juana López - 0987654321
+//   Email: maria.lopez@example.com
+//   Program: Cohorte 2023-2
+//   Status: Graduada
+```
+
+```javascript
+// Search for thesis by title
+google.script.run
+  .withSuccessHandler((jsonResults) => {
+    const thesisList = JSON.parse(jsonResults);
+    
+    thesisList.forEach(thesis => {
+      console.log(`${thesis.titulo}`);
+      console.log(`  Student: ${thesis.estudiante}`);
+      console.log(`  Grade: ${thesis.nota}`);
+    });
+  })
+  .executeSearch('machine learning', 'tesis');
+
+// Output:
+// Machine Learning Applications in Healthcare
+//   Student: Juan Pérez
+//   Grade: 4.5
+```
+
+```javascript
+// Search by student ID number
+google.script.run
+  .withSuccessHandler((jsonResults) => {
+    const results = JSON.parse(jsonResults);
+    if (results.length > 0) {
+      const student = results[0];
+      console.log('Found:', student.nombre);
+    } else {
+      console.log('No student found with that ID');
+    }
+  })
+  .executeSearch('123456', 'estudiante');
+```
+
+### Frontend Integration Example
+
+```javascript
+// React/Vue component example
+function searchStudents(query) {
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler((jsonResults) => {
+        resolve(JSON.parse(jsonResults));
+      })
+      .withFailureHandler(reject)
+      .executeSearch(query, 'estudiante');
+  });
+}
+
+// Usage in component
+async function handleSearch(e) {
+  const query = e.target.value;
+  if (query.length < 2) return;
+  
+  try {
+    const results = await searchStudents(query);
+    setSearchResults(results);
+  } catch (error) {
+    console.error('Search failed:', error);
+  }
+}
+```
+
+---
+
+## Search Behavior
+
+### Case Insensitivity
+
+From `SearchService.js:8`:
+
+All searches are converted to lowercase before matching:
+
+```javascript
+query = query.toString().toLowerCase();
+// "JUAN" becomes "juan"
+// "Pérez" becomes "pérez"
+```
+
+### Partial Matching
+
+Uses JavaScript `.includes()` for substring matching:
+
+```javascript
+// Query: "juan"
+// Matches: "Juan", "Juana", "María Juana", etc.
+
+// Query: "123"
+// Matches: "1234567890", "0123456", etc.
+```
+
+### Multiple Field Search
+
+For students, searches across three fields with OR logic:
+
+```javascript
+// Matches if query appears in ANY of:
+// - Nombre1 (first name)
+// - Apellido1 (last name)  
+// - Cedula (ID number)
+```
+
+### Empty Query Handling
+
+From `SearchService.js:7`:
+
+```javascript
+if (!query) return "[]";
+// Returns empty array instead of all results
+```
+
+---
+
+## Extending Search
+
+The current implementation supports `estudiante` and `tesis`. To add more entity types:
+
+```javascript
+// Add to executeSearch function
+else if (context === 'docente') {
+    const data = getSimpleData(ss.getSheetByName(SHEETS.DOCENTES));
+    results = data.filter(d =>
+        (d['Nombre1'] && d['Nombre1'].toLowerCase().includes(query)) ||
+        (d['Apellido1'] && d['Apellido1'].toLowerCase().includes(query)) ||
+        (d['Especialidad'] && d['Especialidad'].toLowerCase().includes(query))
+    ).map(d => ({
+        id: d['ID_Docente'],
+        nombre: `${d['Nombre1']} ${d['Apellido1']}`,
+        especialidad: d['Especialidad'],
+        email: d['Email']
+    }));
+}
+```
+
+---
+
+## Performance Considerations
+
+<Note>
+**Data Source**: Searches are performed on the full dataset from Google Sheets
+
+- No caching implemented
+- Each search reads the entire sheet
+- Suitable for datasets up to ~5000 records
+- Consider implementing caching for larger datasets
+</Note>
+
+### Optimization Tips
+
+1. **Debounce search input**: Wait 300-500ms after user stops typing
+2. **Minimum query length**: Require 2-3 characters before searching
+3. **Limit results**: Consider adding a `limit` parameter to return only first N results
+
+```javascript
+// Example: Debounced search
+let searchTimeout;
+function handleSearchInput(query) {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    if (query.length >= 2) {
+      executeSearch(query, 'estudiante');
+    }
+  }, 300);
+}
+```
+
+---
+
+## API Mapping
+
+From `Main.js:34`:
+
+```javascript
+// Frontend calls this global function
+function searchUniversal(query, context) { 
+  return executeSearch(query, context); 
+}
+
+// Usage:
+google.script.run.searchUniversal('juan', 'estudiante');
+// Internally calls: executeSearch('juan', 'estudiante')
+```
+
+---
+
+## Error Handling
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonResults) => {
+    try {
+      const results = JSON.parse(jsonResults);
+      // Handle results
+    } catch (e) {
+      console.error('Invalid JSON response:', e);
+      // This should not happen, but handle gracefully
+    }
+  })
+  .withFailureHandler((error) => {
+    console.error('Search failed:', error);
+    alert('Search failed. Please try again.');
+  })
+  .executeSearch(query, context);
+```
+
+---
+
+## Related Functions
+
+<CardGroup cols={2}>
+  <Card title="DriveManager" icon="folder" href="/api/drive-manager">
+    Manage Drive folders and files
+  </Card>
+  <Card title="DataService" icon="list" href="/api/data-service">
+    Get complete entity lists instead of searching
+  </Card>
+</CardGroup>

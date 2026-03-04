@@ -1,80 +1,229 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quickstart'
+description: 'Get SGD-MCS up and running in 15 minutes'
+icon: 'rocket'
 ---
 
-## Get started in three steps
+<Info>
+SGD-MCS (Sistema de Gestión Documental para Maestrías en Ciencias de la Salud) is a document management system for Master's programs built with React and Google Apps Script.
+</Info>
 
-Get your documentation site running locally and make your first customization.
+## Overview
 
-### Step 1: Set up your local environment
+This guide will help you deploy SGD-MCS from scratch. You'll set up:
+- Google Apps Script backend with Google Drive integration
+- React frontend bundled as a single HTML file
+- Google Sheets database for storing entities
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
 
-### Step 2: Deploy your changes
+<Step title="Prerequisites">
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+Ensure you have the following installed:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+- **Node.js** (v18 or higher) and npm
+- **Google Account** with access to Google Drive, Sheets, and Apps Script
+- **clasp CLI** for deploying Google Apps Script
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+```bash
+npm install -g @google/clasp
+clasp login
+```
 
-### Step 3: Go live
+</Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<Step title="Clone and Install">
 
-## Next steps
+Navigate to the project source and install dependencies:
 
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+```bash
+cd workspace/source/Fronted
+npm install
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+The frontend uses Vite with React 19 and includes visualization libraries like ApexCharts, Recharts, and Leaflet for geospatial mapping.
 </Note>
+
+</Step>
+
+<Step title="Configure Google Sheets Database">
+
+Create a new Google Sheet to serve as your database with the following sheets (tabs):
+
+- `Estudiantes` - Student records
+- `Docentes` - Faculty/teacher records  
+- `Tesis` - Thesis projects
+- `Eventos` - Events and activities
+- `Instituciones` - Partner institutions
+- `ParticipantesExternos` - External participants
+- `Participaciones` - Event participation records (M:N relationship)
+- `Historial_Documentos` - Document history/audit trail
+- `Configuracion` - System configuration
+
+Copy the Spreadsheet ID from the URL:
+```
+https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit
+```
+
+</Step>
+
+<Step title="Configure Backend">
+
+Update `~/workspace/source/Backend/core/config.js` with your IDs:
+
+```javascript
+// Your Google Sheets Database ID
+const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE';
+
+// Root folder in Google Drive (optional)
+const ROOT_FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // Leave empty to use Drive root
+```
+
+<Warning>
+Keep your `SPREADSHEET_ID` secure. Anyone with this ID can access your database if the sheet permissions allow it.
+</Warning>
+
+</Step>
+
+<Step title="Build Frontend">
+
+Build the React app into a single HTML file:
+
+```bash
+cd workspace/source/Fronted
+npm run build
+```
+
+This creates `workspace/source/Backend/web/index.html` with all assets inlined. The Vite config is set up to:
+
+```javascript
+build: {
+  outDir: '../backend/web',
+  emptyOutDir: false,
+  target: 'esnext',
+  assetsInlineLimit: 100000000, // Inline everything
+  rollupOptions: {
+    output: {
+      inlineDynamicImports: true, // Single bundle
+    },
+  },
+}
+```
+
+</Step>
+
+<Step title="Deploy to Google Apps Script">
+
+Initialize clasp in the backend directory (first time only):
+
+```bash
+cd workspace/source/Backend
+clasp create --type webapp --title "SGD-MCS v3.0" --rootDir ./
+```
+
+Or if `.clasp.json` already exists, just push:
+
+```bash
+cd workspace/source/Backend
+clasp push
+```
+
+Deploy as a web app:
+
+```bash
+clasp deploy --description "SGD-MCS Production v3.0"
+```
+
+</Step>
+
+<Step title="Configure Web App Permissions">
+
+After deployment:
+
+1. Run `clasp open` to open the Apps Script editor
+2. Click **Deploy** > **Manage deployments**
+3. Select your deployment and click **Edit**
+4. Set:
+   - **Execute as:** User accessing the web app (or "Me" for service account mode)
+   - **Who has access:** Anyone (for public access) or specific domain
+5. Copy the **Web app URL**
+
+<Info>
+The `appsscript.json` manifest includes required OAuth scopes:
+- `https://www.googleapis.com/auth/spreadsheets`
+- `https://www.googleapis.com/auth/drive`
+- `https://www.googleapis.com/auth/script.external_request`
+</Info>
+
+</Step>
+
+<Step title="Test the Application">
+
+Open the Web app URL in your browser. You should see:
+
+1. **Dashboard** with statistics cards showing:
+   - Total students (active, graduated, alumni)
+   - Thesis projects (in progress, completed)
+   - Recent events
+
+2. **Navigation** with modules:
+   - Students, Teachers, Thesis, Events
+   - Document Hub for file management
+   - Repository for uploaded documents
+
+The app uses `doGet()` to serve the React SPA:
+
+```javascript
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('web/index')
+    .setTitle('SGD-MCS v3.0')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+```
+
+</Step>
+
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Detailed setup instructions and configuration options
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    Learn how the system is structured
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Explore backend API functions
+  </Card>
+  <Card title="Customization" icon="paintbrush" href="/customization">
+    Customize themes, colors, and branding
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Build fails with 'outDir' error">
+    Make sure the `Backend/web` directory exists:
+    ```bash
+    mkdir -p workspace/source/Backend/web
+    ```
+  </Accordion>
+  
+  <Accordion title="Apps Script shows 'Exception: Spreadsheet not found'">
+    Verify that:
+    1. Your `SPREADSHEET_ID` in `config.js` is correct
+    2. The Google account deploying has access to the spreadsheet
+    3. All required sheet tabs exist
+  </Accordion>
+  
+  <Accordion title="Web app shows blank page">
+    Check the browser console for errors. Common causes:
+    1. `index.html` wasn't generated in `Backend/web/`
+    2. Apps Script deployment is outdated (run `clasp push` again)
+  </Accordion>
+</AccordionGroup>

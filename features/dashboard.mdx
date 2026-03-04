@@ -1,0 +1,183 @@
+---
+title: Analytics Dashboard
+description: Interactive analytics dashboard with real-time insights and data visualization
+icon: chart-line
+---
+
+<Note>
+The Analytics Dashboard provides comprehensive data visualization and insights across all Master's program operations.
+</Note>
+
+## Overview
+
+The Dashboard is your central hub for monitoring program performance, tracking student progress, and analyzing academic outcomes. It features interactive charts, KPI cards, and exportable reports.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Multi-Module Analytics" icon="layer-group">
+    Separate analysis modules for Students, Faculty, Thesis, Events, Institutions, and External Participants
+  </Card>
+  <Card title="Time-Range Filtering" icon="calendar">
+    Dynamic date range selector to analyze data across different academic periods
+  </Card>
+  <Card title="Interactive Charts" icon="chart-mixed">
+    ApexCharts and lightweight-charts for performance metrics, retention curves, and trends
+  </Card>
+  <Card title="Export Reports" icon="file-export">
+    Download reports as PDF or print optimized reports for presentations
+  </Card>
+</CardGroup>
+
+## Dashboard Modules
+
+### Students & Graduates Module
+
+Comprehensive student analytics with:
+
+- **KPI Cards**: Total enrollment, retention rate, average time to degree, employment rate
+- **Cohort Analysis**: Stacked bar charts showing active, graduated, and withdrawn students per semester
+- **Retention Curves**: Multi-line charts tracking cohort retention over 10 semesters
+- **Time to Degree**: Box plot distribution showing graduation timeframes
+- **Demographics**: Gender distribution and geographic mapping
+- **Employment Insights**: Donut charts for employment status and sector breakdown
+
+```jsx
+// Data structure example
+metrics = {
+  kpis: {
+    total: 150,
+    retencion: 87,
+    tiempoMedio: 24,
+    insercion: 75
+  },
+  charts: {
+    cohorteEstado: { '2024-1': { Activo: 30, Graduado: 5, Retirado: 2 } },
+    permanencia: [100, 95, 90, ...],
+    graduados: [0, 0, 15, 40, ...]
+  }
+}
+```
+
+### Faculty Module
+
+Tracking academic staff performance and involvement.
+
+### Thesis Module
+
+Monitoring thesis progress, defense schedules, and research topics.
+
+### Events Module
+
+Analyzing event participation, types, and impact.
+
+### Institutions Module
+
+Partner institution relationships and agreements.
+
+### External Participants
+
+Guest speakers, external advisors, and collaborators.
+
+## Time Range Control
+
+Located in the dashboard header:
+
+  alt="Time range selector showing from-to year inputs"
+/>
+
+Adjust the analysis period by entering start and end years. All charts update reactively.
+
+```jsx
+const [timeRange, setTimeRange] = useState([2015, new Date().getFullYear()]);
+```
+
+## Navigation
+
+Access different modules via the tab navigation:
+
+- **Students & Graduates**: Enrollment and graduation metrics
+- **Faculty**: Academic body analysis
+- **Thesis**: Research tracking
+- **Events**: Academic activities
+- **Institutions**: Partner organizations
+- **External**: Guest participants
+
+## Export & Print
+
+<Steps>
+  <Step title="Click Export Report">
+    Located in the top-right of each module
+  </Step>
+  <Step title="Select Format">
+    Choose between Print (optimized for paper) or Screenshot (individual charts)
+  </Step>
+  <Step title="Review Output">
+    Print dialog opens with formatted report including all charts and analysis
+  </Step>
+</Steps>
+
+<Warning>
+Large datasets may take a few seconds to render. Wait for all charts to load before exporting.
+</Warning>
+
+## Chart Interactions
+
+### Download Individual Charts
+
+Each chart card includes a download button in the top-right corner:
+
+- **PNG Export**: High-resolution image with 2x scale
+- **Includes Analysis**: Automatically expands analysis text for complete context
+
+### Expandable Analysis
+
+Click "Ver Análisis" below any chart to reveal:
+
+- Interpretation guide
+- Dynamic conclusions based on current data
+- Recommendations and insights
+
+### Tabular Reports
+
+View consolidated data in table format:
+
+  alt="Data table showing semester statistics"
+/>
+
+## Dark Mode Support
+
+The dashboard fully supports dark mode with:
+
+- Automatic theme detection
+- Chart color adjustments for readability
+- Print-optimized output (converts to light theme for paper)
+
+## Performance Optimization
+
+<Tip>
+  The dashboard uses memoization and lazy loading to handle large datasets efficiently.
+</Tip>
+
+- Data processing is memoized with `useMemo`
+- Charts render only when data changes
+- Debounced updates for time range changes
+
+## Source Code Reference
+
+Key files:
+
+- Dashboard container: `Fronted/src/pages/dashboard/DashboardHome.jsx:21`
+- Students module: `Fronted/src/components/dashboard/modules/StudentsModule.jsx:98`
+- Analytics hook: `Fronted/src/hooks/useDashboardAnalytics.js`
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Student Management" icon="user-graduate" href="/features/student-management">
+    View detailed student records
+  </Card>
+  <Card title="Thesis Tracking" icon="book" href="/features/thesis-tracking">
+    Monitor thesis progress
+  </Card>
+</CardGroup>

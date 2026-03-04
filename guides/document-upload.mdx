@@ -1,0 +1,382 @@
+---
+title: 'Document Upload'
+description: 'Learn how to upload and manage documents in SGD-MCS'
+icon: 'cloud-upload'
+---
+
+## Overview
+
+SGD-MCS provides a comprehensive document upload system with drag-and-drop support, automatic UUID generation, and integration with Google Drive. Documents can be uploaded directly to entity folders or to the document history registry.
+
+## Upload Components
+
+The system includes two main upload interfaces:
+
+1. **DocumentUpload Component** - Standalone document registry uploader
+2. **FileUploader Component** - Drive folder file manager
+
+## Basic Document Upload
+
+### Using the DocumentUpload Component
+
+Location: `Fronted/src/components/common/DocumentUpload.jsx`
+
+This component provides a simple drag-and-drop interface for uploading documents to the system registry.
+
+<Steps>
+  <Step title="Access Upload Interface">
+    The document upload component can be used anywhere in the application:
+
+    ```jsx
+    <DocumentUpload 
+        onSuccess={handleUploadSuccess}
+        beneficiaryId="EST0001"
+        beneficiaryName="Juan Perez"
+    />
+    ```
+  </Step>
+
+  <Step title="Drag or Select File">
+    You can either:
+    - Drag a file into the upload zone
+    - Click the zone to open the file picker
+
+    ```jsx
+    // Fronted/src/components/common/DocumentUpload.jsx:20
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            setFile(e.dataTransfer.files[0]);
+        }
+    };
+    ```
+  </Step>
+
+  <Step title="Select Document Type">
+    Choose the document category from the dropdown:
+    - Cédula (ID Card)
+    - Tesis / Proyecto (Thesis/Project)
+    - Acta de Grado (Graduation Certificate)
+    - Diploma
+    - Certificado (Certificate)
+    - Otros (Others)
+
+    ```jsx
+    // Fronted/src/components/common/DocumentUpload.jsx:105
+    <select value={docType} onChange={e => setDocType(e.target.value)}>
+        <option>Cédula</option>
+        <option>Tesis / Proyecto</option>
+        <option>Acta de Grado</option>
+        <option>Diploma</option>
+        <option>Certificado</option>
+        <option>Otros</option>
+    </select>
+    ```
+  </Step>
+
+  <Step title="Upload Document">
+    Click **Confirmar Carga** to upload. The system:
+    1. Generates a UUID for the file
+    2. Creates metadata (size, mime type, extension)
+    3. Registers in document history
+    4. Displays success notification
+
+    ```jsx
+    // Fronted/src/components/common/DocumentUpload.jsx:40
+    const uuid = crypto.randomUUID();
+    const fileData = {
+        url: `https://storage.nexodo.com/archives/${uuid}.${file.name.split('.').pop()}`,
+        peso: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+        tipo_mime: file.type,
+        nombre_original: file.name,
+        extension: file.name.split('.').pop()
+    };
+    ```
+  </Step>
+</Steps>
+
+## Uploading to Google Drive Folders
+
+### Using the FileUploader Component
+
+Location: `Fronted/src/pages/repository/FileUploader.jsx`
+
+This component uploads files directly to Google Drive folders associated with entities.
+
+<Steps>
+  <Step title="Navigate to Entity">
+    Open a student, teacher, or other entity detail page. The system displays the linked Drive folder.
+  </Step>
+
+  <Step title="Click Upload Button">
+    Click **SUBIR ARCHIVO** in the folder explorer section:
+
+    ```jsx
+    // Fronted/src/components/common/FolderExplorer.jsx:85
+    <button onClick={() => setShowUploader(true)}>
+        <Upload size={14} />
+        SUBIR ARCHIVO
+    </button>
+    ```
+  </Step>
+
+  <Step title="Select Files">
+    The FileUploader modal opens. You can:
+    - Select multiple files at once
+    - Drag and drop files
+    - See a live preview before upload
+  </Step>
+
+  <Step title="Confirm Upload">
+    Click **Subir Archivos** to upload to Drive. The backend processes each file:
+
+    ```javascript
+    // Backend/services/DriveFileManager.js
+    function uploadFile(folderId, fileData) {
+        const folder = DriveApp.getFolderById(folderId);
+        const blob = Utilities.newBlob(
+            Utilities.base64Decode(fileData.content),
+            fileData.mimeType,
+            fileData.name
+        );
+        const file = folder.createFile(blob);
+        return {
+            id: file.getId(),
+            url: file.getUrl(),
+            name: file.getName(),
+            size: file.getSize()
+        };
+    }
+    ```
+  </Step>
+</Steps>
+
+## File Metadata
+
+### Automatic Metadata Collection
+
+The system automatically collects file metadata during upload:
+
+```javascript
+// Fronted/src/components/common/DocumentUpload.jsx:41
+const fileData = {
+    url: `https://storage.nexodo.com/archives/${uuid}.${file.name.split('.').pop()}`,
+    peso: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+    tipo_mime: file.type,
+    nombre_original: file.name,
+    extension: file.name.split('.').pop()
+};
+```
+
+**Metadata Fields:**
+- `url` - Storage URL with UUID
+- `peso` - File size in MB
+- `tipo_mime` - MIME type (e.g., application/pdf)
+- `nombre_original` - Original filename
+- `extension` - File extension (pdf, docx, jpg, etc.)
+
+### Document History Registry
+
+Uploaded documents are registered in the history sheet:
+
+```javascript
+// Fronted/src/components/common/DocumentUpload.jsx:49
+const payload = {
+    ID_Documento: uuid,
+    ID_Beneficiario: beneficiaryId || 'GUEST',
+    Nombre_Beneficiario: beneficiaryName || 'Anónimo',
+    Tipo_Documento: docType,
+    Usuario_Emisor: 'Admin',
+    Detalle_Origen: 'Carga Manual',
+    Detalles_JSON: JSON.stringify(fileData),
+    Fecha_Registro: new Date().toISOString()
+};
+
+await api.history.create(payload);
+```
+
+## UUID Generation
+
+<Note>
+  Files are automatically renamed with UUIDs to prevent duplicates and ensure unique identification.
+</Note>
+
+### How UUIDs Work
+
+```javascript
+// Generate a new UUID
+const uuid = crypto.randomUUID();
+// Example: "550e8400-e29b-41d4-a716-446655440000"
+
+// Construct storage URL
+const url = `https://storage.nexodo.com/archives/${uuid}.${extension}`;
+// Example: "https://storage.nexodo.com/archives/550e8400-e29b-41d4-a716-446655440000.pdf"
+```
+
+**Benefits:**
+- Prevents filename conflicts
+- Maintains file traceability
+- Enables version control
+- Simplifies storage management
+
+## Drive Folder Upload
+
+### Entity Folder Structure
+
+When uploading to entity folders, files are organized hierarchically:
+
+```
+SGD_DATABASE_ROOT/
+└── Estudiantes/
+    └── 2024-1/
+        └── EST0001 - Juan Perez/
+            ├── Cedula.pdf
+            ├── Diploma.pdf
+            └── Tesis_Final.docx
+```
+
+### Uploading via API
+
+The frontend communicates with Google Drive via the API layer:
+
+```javascript
+// Fronted/src/services/api.js:255
+await api.drive.uploadFile(folderId, fileData);
+```
+
+In development mode, this returns a mock response. In production, it calls the Google Apps Script backend.
+
+## File Type Support
+
+SGD-MCS supports all standard file types:
+
+- **Documents**: PDF, DOCX, DOC, TXT, RTF
+- **Spreadsheets**: XLSX, XLS, CSV
+- **Images**: JPG, PNG, GIF, BMP, SVG
+- **Archives**: ZIP, RAR, 7Z
+- **Other**: Any file type supported by Google Drive
+
+## Upload Validation
+
+### Frontend Validation
+
+```jsx
+// Check if file exists before upload
+if (!file) return;
+
+// Validate file size (example: 50MB limit)
+if (file.size > 50 * 1024 * 1024) {
+    toast.error('Error', 'El archivo es demasiado grande (máximo 50MB)');
+    return;
+}
+```
+
+### Backend Validation
+
+```javascript
+// Backend validation in Google Apps Script
+function uploadFile(folderId, fileData) {
+    try {
+        // Verify folder exists
+        const folder = DriveApp.getFolderById(folderId);
+        if (folder.isTrashed()) {
+            throw new Error('La carpeta está en la papelera');
+        }
+        
+        // Validate file data
+        if (!fileData.content || !fileData.name) {
+            throw new Error('Datos de archivo inválidos');
+        }
+        
+        // Create file
+        const file = folder.createFile(blob);
+        
+        // Log action
+        logDocumentAction({
+            action: 'FILE_UPLOAD',
+            fileId: file.getId(),
+            fileName: file.getName(),
+            folderId: folderId
+        });
+        
+        return { success: true, id: file.getId() };
+    } catch (error) {
+        return { success: false, message: error.toString() };
+    }
+}
+```
+
+## Progress Tracking
+
+For large uploads or batch uploads, display progress:
+
+```jsx
+const [uploadProgress, setUploadProgress] = useState({
+    current: 0,
+    total: 0,
+    status: 'idle'
+});
+
+// Update during upload
+setUploadProgress({
+    current: i + 1,
+    total: files.length,
+    status: 'uploading'
+});
+```
+
+## Error Handling
+
+<Warning>
+  Always implement error handling for upload operations to provide user feedback.
+</Warning>
+
+```javascript
+try {
+    await api.history.create(payload);
+    toast.success('¡Archivo Cargado!', 'El documento se ha guardado en el historial.');
+    setFile(null);
+    if (onSuccess) onSuccess();
+} catch (error) {
+    console.error('Upload error:', error);
+    toast.error('Error', 'No se pudo subir el archivo.');
+} finally {
+    setUploading(false);
+}
+```
+
+## Best Practices
+
+<Note>
+  - Always validate file size and type before upload
+  - Use UUIDs for unique file identification
+  - Provide clear feedback during upload process
+  - Implement proper error handling
+  - Log all upload actions for audit trail
+</Note>
+
+### Recommended Upload Flow
+
+1. **Validate** - Check file size, type, and user permissions
+2. **Generate UUID** - Create unique identifier
+3. **Collect Metadata** - Extract file information
+4. **Upload** - Send to storage/Drive
+5. **Register** - Record in document history
+6. **Notify** - Inform user of success/failure
+7. **Cleanup** - Clear temporary data
+
+## Viewing Uploaded Documents
+
+After upload, documents can be accessed via:
+
+- **Document History** - View all uploads in chronological order
+- **Entity Folders** - Access files via Drive folder links
+- **Search** - Find documents by name, type, or date
+
+## Next Steps
+
+- Learn about [Drive Integration](/guides/drive-integration) for advanced folder management
+- Explore [Search Functionality](/guides/search-functionality) to find uploaded documents
+- Review [Import/Export](/guides/import-export) for bulk document operations

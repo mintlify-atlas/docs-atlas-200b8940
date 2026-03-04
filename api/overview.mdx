@@ -1,0 +1,141 @@
+---
+title: "API Overview"
+description: "SGD-MCS Backend API Documentation - Google Apps Script Services"
+---
+
+## Introduction
+
+The SGD-MCS backend is built on Google Apps Script and provides a comprehensive API for managing academic entities, documents, and file storage through Google Drive and Google Sheets.
+
+## Architecture
+
+The backend is organized into specialized services:
+
+- **EntityManager**: Universal CRUD operations for all database entities
+- **DriveManager**: Automated folder structure and Drive integration
+- **DriveFileManager**: Advanced file and folder operations
+- **SearchService**: Universal search across database entities
+- **DataService**: Bulk data retrieval for listings
+
+## Calling the API
+
+All backend functions are accessed via `google.script.run` from the frontend:
+
+```javascript
+// Example: Create a new student
+google.script.run
+  .withSuccessHandler((response) => {
+    if (response.success) {
+      console.log('Created:', response.id);
+    }
+  })
+  .withFailureHandler((error) => {
+    console.error('Error:', error);
+  })
+  .createItem('estudiante', {
+    Nombre1: 'Juan',
+    Apellido1: 'Pérez',
+    Cedula: '1234567890',
+    Cohorte_Ingreso: '2024-1'
+  });
+```
+
+## Response Format
+
+Most API functions return a standardized response object:
+
+```javascript
+{
+  success: true,        // Boolean indicating operation success
+  message: 'Created',   // Human-readable message
+  id: 'EST0001',        // Entity ID (when applicable)
+  // ... additional data
+}
+```
+
+<Note>
+Some services (SearchService, DataService) return JSON strings that need to be parsed:
+```javascript
+const results = JSON.parse(response);
+```
+</Note>
+
+## Entity Types
+
+The system supports five main entity types:
+
+| Type | Spanish | ID Prefix | Description |
+|------|---------|-----------|-------------|
+| `estudiante` | Estudiante | EST | Graduate students |
+| `docente` | Docente | DOC | Faculty members |
+| `externo` | Externo | EXT | External evaluators |
+| `tesis` | Tesis | TES | Thesis projects |
+| `evento` | Evento | EVE | Academic events |
+
+## Automatic Features
+
+### Auto-Generated IDs
+
+All entities automatically receive unique IDs (e.g., EST0001, DOC0042) when created without an ID.
+
+### Audit Trail
+
+The system automatically logs:
+- User email
+- Timestamps (creation and last update)
+- Action history for all operations
+
+### Drive Integration
+
+Each entity can have an associated Drive folder created automatically with the structure:
+
+```
+Root/
+  Estudiantes/
+    2024-1/
+      EST0001 - Juan Pérez/
+  Tesis/
+    2024/
+      TES0001 - Machine Learning Research/
+```
+
+## Getting Started
+
+1. **Create an entity**: Use [EntityManager.createItem()](/api/entity-manager#createitem)
+2. **Manage files**: Use [DriveManager](/api/drive-manager) to manage folders and files
+3. **Search data**: Use [SearchService.executeSearch()](/api/search-service#executesearch)
+4. **List entities**: Use [DataService](/api/data-service) for bulk retrieval
+
+## Error Handling
+
+All functions use try-catch blocks and return error information:
+
+```javascript
+google.script.run
+  .withSuccessHandler((response) => {
+    if (!response.success) {
+      alert('Operation failed: ' + response.message);
+    }
+  })
+  .withFailureHandler((error) => {
+    console.error('Script error:', error);
+  })
+  .createItem('estudiante', data);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="EntityManager" icon="database" href="/api/entity-manager">
+    Create, update, and delete entities
+  </Card>
+  <Card title="DriveManager" icon="folder" href="/api/drive-manager">
+    Manage Drive folders and structure
+  </Card>
+  <Card title="SearchService" icon="magnifying-glass" href="/api/search-service">
+    Search across all entities
+  </Card>
+  <Card title="DataService" icon="list" href="/api/data-service">
+    Retrieve entity listings
+  </Card>
+</CardGroup>

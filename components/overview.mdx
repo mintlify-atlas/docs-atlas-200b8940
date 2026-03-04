@@ -1,0 +1,66 @@
+---
+title: Components Overview
+description: Reusable UI components for SGD-MCS frontend
+---
+
+The SGD-MCS frontend includes a collection of reusable React components designed for managing academic data, documents, and Google Drive integration.
+
+## Common Components
+
+The application features several common components located in `src/components/common/` that provide core UI functionality:
+
+### Form & Input Components
+
+<Card title="CustomSelect" icon="list" href="/components/custom-select">
+  A custom dropdown select component with dark mode support, icons, and validation states
+</Card>
+
+### Document Management
+
+<Card title="DocumentUpload" icon="upload" href="/components/document-upload">
+  Drag-and-drop file upload component with document type selection and progress tracking
+</Card>
+
+### Google Drive Integration
+
+<Card title="FolderExplorer" icon="folder" href="/components/folder-explorer">
+  Google Drive folder explorer with sync capabilities and file upload integration
+</Card>
+
+## Component Architecture
+
+All components follow these design principles:
+
+- **Responsive Design**: Mobile-first approach with responsive breakpoints
+- **Dark Mode**: Full dark mode support using Tailwind's dark: variant
+- **Accessibility**: Semantic HTML and keyboard navigation support
+- **Modern UI**: Uses lucide-react icons and Tailwind CSS for styling
+- **Type Safety**: Components accept typed props for validation
+
+## Layout Components
+
+Additional layout components are available in `src/components/layout/`:
+
+- **MainLayout**: Primary application layout wrapper
+- **Navbar**: Top navigation bar with user menu
+- **Sidebar**: Side navigation panel
+
+## Dashboard Components
+
+Specialized dashboard components in `src/components/dashboard/`:
+
+- **StatCard**: Metric display cards
+- **DashboardCharts**: Chart visualization components
+- **Module Components**: Domain-specific modules (Students, Docentes, Tesis, etc.)
+
+## Getting Started
+
+Import components from their respective paths:
+
+```jsx
+import CustomSelect from './components/common/CustomSelect';
+import FolderExplorer from './components/common/FolderExplorer';
+import DocumentUpload from './components/common/DocumentUpload';
+```
+
+Each component page includes detailed prop documentation, usage examples, and code samples.

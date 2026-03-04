@@ -1,0 +1,467 @@
+---
+title: 'Search Functionality'
+description: 'Master the search and filtering capabilities in SGD-MCS'
+icon: 'search'
+---
+
+## Overview
+
+SGD-MCS provides powerful search and filtering capabilities across all entity types and documents. The search system includes full-text search, advanced filters, and real-time results.
+
+## Search Architecture
+
+The search system operates at multiple levels:
+
+1. **Frontend Search** - Client-side filtering for loaded data
+2. **Backend Search** - Server-side search across Google Sheets
+3. **Drive Search** - File and folder search in Google Drive
+4. **Universal Search** - Cross-entity search across all data
+
+## Basic Search
+
+### List View Search
+
+Every entity list page includes a search bar with real-time filtering:
+
+```jsx
+// Fronted/src/pages/students/StudentList.jsx:290
+<div className="relative flex-1 group">
+    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2" />
+    <input
+        type="text"
+        placeholder="Buscar por nombre, documento..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full pl-10 pr-4 py-2.5 rounded-xl"
+    />
+</div>
+```
+
+<Steps>
+  <Step title="Enter Search Term">
+    Type in the search box. The search is case-insensitive and searches multiple fields.
+  </Step>
+
+  <Step title="Real-time Results">
+    Results update as you type using React's useMemo:
+
+    ```jsx
+    // Fronted/src/pages/students/StudentList.jsx:152
+    const processedStudents = useMemo(() => {
+        return rawStudents.filter(student => {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+                student.nombre.toLowerCase().includes(searchLower) ||
+                student.numDoc.toString().includes(searchLower)
+            );
+        });
+    }, [rawStudents, searchTerm]);
+    ```
+  </Step>
+
+  <Step title="Clear Search">
+    Click the X button or delete all text to clear the search and show all results.
+  </Step>
+</Steps>
+
+### Searchable Fields by Entity
+
+**Students:**
+- Name (first name, last name)
+- Document number (cédula)
+- Email
+- Student ID
+
+**Teachers:**
+- Name
+- Email
+- Department
+- Expertise area
+
+**Thesis:**
+- Title
+- Student name
+- Thesis ID
+
+**Events:**
+- Event name
+- Description
+- Location
+
+**Documents:**
+- Document type
+- Beneficiary name
+- Original filename
+
+## Advanced Filtering
+
+### Multi-criteria Filtering
+
+Combine search with filters for precise results:
+
+<Steps>
+  <Step title="Open Filter Panel">
+    Click the **Filtros** button to reveal advanced filter options:
+
+    ```jsx
+    // Fronted/src/pages/students/StudentList.jsx:301
+    <button onClick={() => setShowFilters(!showFilters)}>
+        <SlidersHorizontal size={18} /> Filtros
+    </button>
+    ```
+  </Step>
+
+  <Step title="Select Filter Criteria">
+    Choose from available filters:
+
+    ```jsx
+    // Fronted/src/pages/students/StudentList.jsx:306
+    <FilterSelect 
+        label="Estado" 
+        value={filterStatus} 
+        onChange={setFilterStatus} 
+        options={['Todos', 'Cursando', 'Egresado', 'En Pausa', 'Retirado']} 
+    />
+    <FilterSelect 
+        label="Cohorte" 
+        value={filterCohort} 
+        onChange={setFilterCohort} 
+        options={['Todos', ...uniqueCohorts]} 
+    />
+    <FilterSelect 
+        label="Documento" 
+        value={filterDocType} 
+        onChange={setFilterDocType} 
+        options={['Todos', 'CC', 'TI', 'CE', 'PAS']} 
+    />
+    ```
+  </Step>
+
+  <Step title="Apply Multiple Filters">
+    Filters are combined with AND logic:
+
+    ```jsx
+    // Fronted/src/pages/students/StudentList.jsx:152
+    .filter(student => {
+        return (
+            student.nombre.toLowerCase().includes(searchTerm.toLowerCase()) &&
+            (filterStatus === 'Todos' || student.estado === filterStatus) &&
+            (filterCohort === 'Todos' || student.cohorteIn === filterCohort) &&
+            (filterDocType === 'Todos' || student.tipoDoc === filterDocType)
+        );
+    });
+    ```
+  </Step>
+
+  <Step title="Clear Filters">
+    Click **Limpiar** to reset all filters:
+
+    ```jsx
+    <button onClick={() => {
+        setFilterStatus('Todos');
+        setFilterCohort('Todos');
+        setFilterDocType('Todos');
+        setSearchTerm('');
+    }}>
+        <X size={16} /> Limpiar
+    </button>
+    ```
+  </Step>
+</Steps>
+
+## Backend Search
+
+### Universal Search Service
+
+Location: `Backend/services/SearchService.js`
+
+The backend provides server-side search across Google Sheets:
+
+```javascript
+// Backend/services/SearchService.js:6
+function executeSearch(query, context) {
+    if (!query) return "[]";
+    query = query.toString().toLowerCase();
+    const ss = getDB();
+    let results = [];
+
+    if (context === 'estudiante') {
+        const data = getSimpleData(ss.getSheetByName(SHEETS.ESTUDIANTES));
+        results = data.filter(r =>
+            (r['Nombre1'] && r['Nombre1'].toLowerCase().includes(query)) ||
+            (r['Apellido1'] && r['Apellido1'].toLowerCase().includes(query)) ||
+            (r['Cedula'] && r['Cedula'].toString().includes(query))
+        ).map(r => ({
+            id: r['ID_Estudiante'],
+            nombre: `${r['Nombre1']} ${r['Nombre2'] || ''} ${r['Apellido1']} ${r['Apellido2'] || ''}`.trim(),
+            cedula: r['Cedula'],
+            programa: r['Cohorte_Ingreso'] ? `Cohorte ${r['Cohorte_Ingreso']}` : 'Sin Cohorte',
+            email: r['Email'],
+            estado: r['Estado']
+        }));
+    }
+
+    return JSON.stringify(results);
+}
+```
+
+### Calling Backend Search
+
+```javascript
+// Frontend API call
+const results = await api.documents.search(query, 'estudiante');
+```
+
+## Drive Search
+
+### Searching Files in Folders
+
+Search for files within a specific folder:
+
+<Steps>
+  <Step title="Open Repository">
+    Navigate to **Repositorio** from the main menu.
+  </Step>
+
+  <Step title="Enter Search Query">
+    Type in the search box at the top:
+
+    ```jsx
+    // Fronted/src/pages/repository/RepositoryHome.jsx:287
+    <input
+        type="text"
+        placeholder="Buscar en esta carpeta..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+    />
+    ```
+  </Step>
+
+  <Step title="Execute Search">
+    Press Enter or click the search icon. The system searches files and folders:
+
+    ```javascript
+    // Fronted/src/pages/repository/RepositoryHome.jsx:137
+    const handleSearch = async () => {
+        const results = await api.drive.searchUniversal(searchQuery);
+        const foundFiles = results.filter(item => item.type === 'file');
+        const foundFolders = results.filter(item => item.type === 'folder');
+        setFiles(foundFiles);
+        setFolders(foundFolders);
+    };
+    ```
+  </Step>
+
+  <Step title="Clear Search">
+    Click the X button to clear search and return to folder view.
+  </Step>
+</Steps>
+
+### Backend Drive Search
+
+```javascript
+// Backend/services/DriveFileManager.js
+function searchFilesInFolder(folderId, query) {
+    const folder = DriveApp.getFolderById(folderId);
+    const files = folder.searchFiles(
+        `title contains '${query}' and trashed = false`
+    );
+    
+    const results = [];
+    while (files.hasNext()) {
+        const file = files.next();
+        results.push({
+            id: file.getId(),
+            name: file.getName(),
+            mimeType: file.getMimeType(),
+            url: file.getUrl(),
+            size: file.getSize(),
+            lastUpdated: file.getLastUpdated().toISOString()
+        });
+    }
+    
+    return results;
+}
+```
+
+## Search Performance
+
+### Debouncing
+
+Search uses debouncing to reduce unnecessary queries:
+
+```jsx
+// Fronted/src/pages/repository/RepositoryHome.jsx:42
+useEffect(() => {
+    const timer = setTimeout(() => {
+        if (searchQuery.trim()) {
+            handleSearch();
+        }
+    }, 500); // Wait 500ms after typing stops
+
+    return () => clearTimeout(timer);
+}, [searchQuery]);
+```
+
+### Memoization
+
+Search results are memoized to prevent recalculation:
+
+```jsx
+const filteredData = useMemo(() => {
+    return data.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+}, [data, searchTerm]);
+```
+
+## Export Search Results
+
+<Note>
+  You can export filtered search results to Excel or PDF.
+</Note>
+
+<Steps>
+  <Step title="Perform Search/Filter">
+    Use search and filters to narrow down results.
+  </Step>
+
+  <Step title="Click Export Button">
+    ```jsx
+    <button onClick={() => setIsExportModalOpen(true)}>
+        <Download size={18} /> Exportar
+    </button>
+    ```
+  </Step>
+
+  <Step title="Select Export Options">
+    Choose format (Excel/PDF) and fields to export:
+
+    ```jsx
+    <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        data={processedStudents} // Filtered data
+        sourceName="Estudiantes"
+    />
+    ```
+  </Step>
+
+  <Step title="Download File">
+    Click **Descargar** to export the filtered results.
+  </Step>
+</Steps>
+
+## Bulk Selection from Search
+
+You can select and operate on search results:
+
+<Steps>
+  <Step title="Search for Entities">
+    Use search to find specific records.
+  </Step>
+
+  <Step title="Select Results">
+    Check the boxes next to search results:
+
+    ```jsx
+    const toggleSelectOne = (id) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedIds(newSet);
+    };
+    ```
+  </Step>
+
+  <Step title="Perform Bulk Action">
+    Edit or delete selected items using the floating action dock.
+  </Step>
+</Steps>
+
+## Search Best Practices
+
+<Note>
+  - Use specific terms for better results
+  - Combine search with filters for precision
+  - Clear search before applying new filters
+  - Use document numbers for exact matches
+  - Search is case-insensitive
+</Note>
+
+## Search Shortcuts
+
+### Quick Filters
+
+Common search patterns:
+
+- **By Status**: Select status filter without typing
+- **By Year**: Use cohort filter for year-based search
+- **By Document**: Filter by document type (CC, TI, etc.)
+
+### Keyboard Navigation
+
+- **Enter**: Execute search in repository
+- **Escape**: Clear search (in some contexts)
+- **Tab**: Navigate between search and filters
+
+## Troubleshooting Search
+
+### No Results Found
+
+<Warning>
+  If search returns no results:
+  - Verify spelling
+  - Remove filters to broaden search
+  - Check if data exists in the database
+  - Try searching by different fields
+</Warning>
+
+### Slow Search
+
+If search is slow:
+- Reduce the number of records by filtering first
+- Use backend search for large datasets
+- Clear browser cache
+- Check network connection
+
+## Advanced Search Tips
+
+### Partial Matching
+
+Search uses partial matching by default:
+
+```javascript
+// Matches "Juan", "Juana", "Juan Carlos"
+student.nombre.includes('Juan')
+```
+
+### Multi-word Search
+
+Search for multiple words:
+
+```javascript
+const terms = searchTerm.toLowerCase().split(' ');
+return terms.every(term => 
+    student.nombre.toLowerCase().includes(term) ||
+    student.email.toLowerCase().includes(term)
+);
+```
+
+### Exact Match Search
+
+For exact matches, use document numbers or IDs:
+
+```javascript
+if (searchTerm.match(/^\d+$/)) {
+    // Numeric search - exact match on document
+    return student.numDoc === searchTerm;
+}
+```
+
+## Next Steps
+
+- Learn about [Import/Export](/guides/import-export) to work with bulk data
+- Explore [Managing Entities](/guides/managing-entities) for entity operations
+- Review [Drive Integration](/guides/drive-integration) for file search

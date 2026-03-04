@@ -1,0 +1,424 @@
+---
+title: "DriveManager"
+description: "Automated Drive folder structure and entity integration"
+---
+
+## Overview
+
+DriveManager handles the automated creation and management of the Drive folder hierarchy for SGD-MCS entities. It creates organized folder structures based on entity type, year/cohort, and entity identifiers.
+
+**Source**: `~/workspace/source/Backend/services/DriveManager.js`
+
+<Note>
+This service handles both folder management and file operations for the Drive integration.
+</Note>
+
+## Folder Structure
+
+The system creates this hierarchy:
+
+```
+SGD_DATABASE_ROOT/
+├── Estudiantes/
+│   ├── 2024-1/
+│   │   ├── EST0001 - Juan Pérez/
+│   │   └── EST0002 - María González/
+│   └── 2024-2/
+├── Docentes/
+│   └── 2024/
+│       └── DOC0001 - Dr. López/
+├── Tesis/
+│   └── 2024/
+│       └── TES0001 - Machine Learning Research/
+├── Eventos/
+│   └── 2024/
+├── Externos/
+│   └── 2024/
+└── _Plantillas/
+```
+
+---
+
+## getSystemRootFolder
+
+Obtains the root folder for the entire system.
+
+<ResponseField name="folder" type="Folder" required>
+  Google Drive Folder object (not serializable)
+</ResponseField>
+
+### Behavior
+
+1. Tries to get folder by `ROOT_FOLDER_ID` from Config.js
+2. Falls back to creating "SGD_DATABASE_ROOT" in user's Drive root
+3. Uses `getOrCreateFolder()` to ensure folder exists
+
+<Note>
+This function is used internally. To get folder information from the frontend, use `getSystemRootFolderId()`.
+</Note>
+
+---
+
+## getSystemRootFolderId
+
+Gets the root folder ID and metadata (frontend-compatible).
+
+<ResponseField name="success" type="boolean" required>
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="id" type="string">
+  Folder ID in Google Drive
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Folder name
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  Direct URL to folder in Drive
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((response) => {
+    console.log('Root folder:', response.name);
+    console.log('Open at:', response.url);
+    // Use response.id for creating subfolders
+  })
+  .getSystemRootFolderId();
+
+// Response:
+// {
+//   success: true,
+//   id: '1a2b3c4d5e6f7g8h9i0j',
+//   name: 'SGD_DATABASE_ROOT',
+//   url: 'https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j'
+// }
+```
+
+---
+
+## createEntityFolder
+
+Creates the folder structure for a new entity.
+
+<ParamField path="type" type="string" required>
+  Entity type: `estudiante`, `docente`, `externo`, `evento`, or `tesis`
+</ParamField>
+
+<ParamField path="data" type="object" required>
+  Entity data object containing ID and naming fields
+</ParamField>
+
+<Accordion title="Required Data Fields by Type">
+  **Estudiante:**
+  - `ID_Estudiante`: Student ID
+  - `Nombre1`, `Apellido1`: Name for folder
+  - `Cohorte_Ingreso`: Cohort (e.g., "2024-1") for organization
+
+  **Docente:**
+  - `ID_Docente`: Teacher ID
+  - `Nombre1`, `Apellido1`: Name
+
+  **Tesis:**
+  - `ID_Tesis`: Thesis ID
+  - `Titulo_Investigacion`: Title
+  - `Año`: Year for organization
+
+  **Evento:**
+  - `ID_Evento`: Event ID
+  - `Nombre_Evento`: Event name
+
+  **Externo:**
+  - `ID_Externo`: External ID
+  - `Nombre1`, `Apellido1`: Name
+</Accordion>
+
+<ResponseField name="id" type="string" required>
+  Created folder's Drive ID
+</ResponseField>
+
+<ResponseField name="url" type="string" required>
+  Direct URL to the folder
+</ResponseField>
+
+### Example
+
+```javascript
+// Usually called internally by EntityManager.createItem()
+// But can be called directly:
+
+const folderInfo = createEntityFolder('estudiante', {
+  ID_Estudiante: 'EST0001',
+  Nombre1: 'Juan',
+  Apellido1: 'Pérez',
+  Cohorte_Ingreso: '2024-1'
+});
+
+console.log(folderInfo);
+// {
+//   id: '1a2b3c4d5e6f7g8h9i0j',
+//   url: 'https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j'
+// }
+
+// Creates: Root/Estudiantes/2024-1/EST0001 - Juan Pérez/
+```
+
+<Note>
+**Cohort Handling (Students):**
+- Accepts ISO date strings: "2023-01-01T05:00:00.000Z" → extracted to "2023-1"
+- Accepts direct format: "2024-1"
+- Month 1-6 = semester 1, Month 7-12 = semester 2
+</Note>
+
+---
+
+## syncEntityFolder
+
+Creates or verifies the Drive folder for an existing entity.
+
+<ParamField path="type" type="string" required>
+  Entity type: `estudiante`, `docente`, `externo`, `evento`, or `tesis`
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Entity ID (e.g., "EST0001")
+</ParamField>
+
+<ResponseField name="success" type="boolean" required>
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="id" type="string">
+  Folder ID in Drive
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  Direct URL to folder
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Description of what happened
+</ResponseField>
+
+### Example
+
+```javascript
+// Sync folder for an existing student
+google.script.run
+  .withSuccessHandler((response) => {
+    if (response.success) {
+      console.log(response.message);
+      // Either: "Carpeta creada y vinculada"
+      // Or: "La carpeta ya existe y está vinculada"
+      window.open(response.url, '_blank');
+    }
+  })
+  .syncEntityFolder('estudiante', 'EST0001');
+```
+
+### Behavior
+
+1. Searches for entity by ID in the corresponding Sheet
+2. Checks if `ID_Carpeta_Drive` column has a value
+3. If folder exists and not trashed: returns existing folder info
+4. If folder missing or trashed: creates new folder and updates Sheet
+5. Logs audit trail for folder creation
+
+<Note>
+This function is automatically called by `updateItem()` if an entity has no folder.
+</Note>
+
+---
+
+## getEntityFiles
+
+Retrieves all files within an entity's Drive folder.
+
+<ParamField path="folderId" type="string" required>
+  Drive folder ID
+</ParamField>
+
+<ResponseField name="files" type="array" required>
+  Array of file objects (empty array if error)
+</ResponseField>
+
+### File Object Structure
+
+<ResponseField name="id" type="string">
+  File ID in Drive
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  File name
+</ResponseField>
+
+<ResponseField name="mimeType" type="string">
+  MIME type (e.g., "application/pdf", "image/jpeg")
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  Direct URL to file
+</ResponseField>
+
+<ResponseField name="size" type="number">
+  File size in bytes
+</ResponseField>
+
+<ResponseField name="lastUpdated" type="string">
+  ISO timestamp of last modification
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((files) => {
+    console.log(`Found ${files.length} files`);
+    files.forEach(file => {
+      console.log(`- ${file.name} (${formatBytes(file.size)})`);
+    });
+  })
+  .getEntityFiles('1a2b3c4d5e6f7g8h9i0j');
+
+// Response:
+// [
+//   {
+//     id: '1abc...',
+//     name: 'Cedula.pdf',
+//     mimeType: 'application/pdf',
+//     url: 'https://drive.google.com/file/d/1abc.../view',
+//     size: 245632,
+//     lastUpdated: '2024-06-15T10:30:00.000Z'
+//   },
+//   ...
+// ]
+```
+
+<Note>
+This function only returns files, not subfolders. Use `getFolderStructure()` from DriveFileManager for folder hierarchies.
+</Note>
+
+---
+
+## deleteEntityFolder
+
+Moves an entity's folder to Drive trash.
+
+<ParamField path="folderId" type="string" required>
+  Drive folder ID to delete
+</ParamField>
+
+<ResponseField name="success" type="boolean" required>
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Result message
+</ResponseField>
+
+### Example
+
+```javascript
+// Usually called internally by EntityManager.deleteItem()
+// But can be called directly:
+
+google.script.run
+  .withSuccessHandler((response) => {
+    if (response.success) {
+      console.log('Folder moved to trash');
+    }
+  })
+  .deleteEntityFolder('1a2b3c4d5e6f7g8h9i0j');
+```
+
+<Warning>
+The folder is moved to trash, not permanently deleted. Users can recover it from Drive trash within 30 days.
+</Warning>
+
+---
+
+## getOrCreateFolder
+
+Utility function that gets or creates a folder by name.
+
+<ParamField path="parentFolder" type="Folder" required>
+  Parent Google Drive Folder object
+</ParamField>
+
+<ParamField path="folderName" type="string" required>
+  Name of the folder to get or create
+</ParamField>
+
+<ResponseField name="folder" type="Folder" required>
+  Google Drive Folder object
+</ResponseField>
+
+### Behavior
+
+1. Searches for existing folder with exact name match
+2. Returns existing folder if found
+3. Creates new folder if not found
+4. Idempotent - safe to call multiple times
+
+<Note>
+This is a helper function used internally by other DriveManager functions. It's not typically called from the frontend.
+</Note>
+
+---
+
+## getSubfolderNameByType
+
+Maps entity type to its container folder name.
+
+<ParamField path="type" type="string" required>
+  Entity type
+</ParamField>
+
+<ResponseField name="folderName" type="string" required>
+  Folder name for that entity type
+</ResponseField>
+
+### Mapping Table
+
+| Type | Folder Name |
+|------|-------------|
+| `estudiante` | Estudiantes |
+| `docente` | Docentes |
+| `tesis` | Tesis |
+| `evento` | Eventos |
+| `externo` | Externos |
+| (other) | Otros |
+
+---
+
+## Implementation Notes
+
+### Folder Organization
+
+From `DriveManager.js:73-110`:
+
+- **Students**: Organized by cohort ("2024-1", "2024-2")
+- **Thesis**: Organized by year
+- **Other entities**: Organized by current year
+
+### Error Handling
+
+All functions handle Drive API errors gracefully:
+
+- Invalid folder IDs return empty/error responses
+- Trashed folders are detected and recreated
+- Missing permissions log errors but don't crash
+
+### Audit Integration
+
+From `DriveManager.js:188-197`:
+
+All folder operations are logged via `logDocumentAction()` with:
+- Action type (SYNC_FOLDER, DELETE_ENTITY_FOLDER)
+- Folder ID and name
+- Associated entity information
+- Contextual details

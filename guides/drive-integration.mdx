@@ -1,0 +1,500 @@
+---
+title: 'Drive Integration'
+description: 'Comprehensive guide to Google Drive integration and folder management'
+icon: 'folder-sync'
+---
+
+## Overview
+
+SGD-MCS integrates deeply with Google Drive to provide automatic folder creation, synchronization, and file management for all entities. Each student, teacher, thesis, and event can have a dedicated Drive folder with automatic organization.
+
+## Drive Architecture
+
+The Drive integration consists of three main components:
+
+1. **DriveManager** - Folder structure management
+2. **DriveFileManager** - Individual file operations
+3. **FolderExplorer** - Frontend interface component
+
+### System Folder Structure
+
+```
+SGD_DATABASE_ROOT/
+├── Estudiantes/
+│   ├── 2024-1/
+│   │   ├── EST0001 - Juan Perez/
+│   │   └── EST0002 - Maria Garcia/
+│   └── 2023-2/
+│       └── EST0003 - Carlos Lopez/
+├── Docentes/
+│   └── 2024/
+│       ├── DOC0001 - Ana Martinez/
+│       └── DOC0002 - Pedro Sanchez/
+├── Tesis/
+│   └── 2024/
+│       └── TES0001 - AI Research/
+├── Eventos/
+│   └── 2024/
+│       └── EVT0001 - Conferencia/
+└── Externos/
+    └── 2024/
+        └── EXT0001 - Consultor/
+```
+
+## Root Folder Configuration
+
+### Setting Up the Root Folder
+
+<Steps>
+  <Step title="Configure in Backend">
+    Set the root folder ID in `Backend/core/config.js`:
+
+    ```javascript
+    const ROOT_FOLDER_ID = "your-google-drive-folder-id-here";
+    ```
+
+    If not configured, the system creates a default folder.
+  </Step>
+
+  <Step title="Get Root Folder ID">
+    The system can retrieve or create the root folder:
+
+    ```javascript
+    // Backend/services/DriveManager.js:23
+    function getSystemRootFolder() {
+        if (ROOT_FOLDER_ID && ROOT_FOLDER_ID !== "") {
+            try {
+                return DriveApp.getFolderById(ROOT_FOLDER_ID);
+            } catch (e) {
+                Logger.log("Error loading root folder, using fallback...");
+            }
+        }
+
+        // Fallback: Create "SGD_DATABASE_ROOT" in user's Drive root
+        const root = DriveApp.getRootFolder();
+        return getOrCreateFolder(root, "SGD_DATABASE_ROOT");
+    }
+    ```
+  </Step>
+
+  <Step title="Verify from Frontend">
+    The frontend can check the root folder configuration:
+
+    ```javascript
+    const rootInfo = await api.drive.getRootFolder();
+    console.log('Root Folder:', rootInfo.name, rootInfo.url);
+    ```
+  </Step>
+</Steps>
+
+## Automatic Folder Creation
+
+### Entity Folder Creation
+
+When creating a new entity, the system automatically creates a Drive folder:
+
+<Steps>
+  <Step title="Determine Folder Structure">
+    The system creates a hierarchical structure based on entity type and metadata:
+
+    ```javascript
+    // Backend/services/DriveManager.js:73
+    function createEntityFolder(type, data) {
+        const rootFolder = getSystemRootFolder();
+        const typeFolderName = getSubfolderNameByType(type);
+        const typeFolder = getOrCreateFolder(rootFolder, typeFolderName);
+
+        // For students, use cohort (e.g., "2023-1")
+        if (type === 'estudiante' && data.Cohorte_Ingreso) {
+            folderName = extractCohort(data.Cohorte_Ingreso);
+        }
+
+        // For thesis, use year
+        if (type === 'tesis' && data.Año) {
+            folderName = data.Año.toString();
+        }
+
+        const yearFolder = getOrCreateFolder(typeFolder, folderName);
+    }
+    ```
+  </Step>
+
+  <Step title="Generate Folder Name">
+    Folder names follow a consistent pattern:
+
+    ```javascript
+    // Backend/services/DriveManager.js:113
+    const id = data.ID_Estudiante || data.ID_Docente || data.ID_Tesis;
+    const mainLabel = data.Nombre1 ? 
+        `${data.Nombre1} ${data.Apellido1}` : 
+        (data.Titulo_Investigacion || data.Nombre_Evento);
+
+    entityName = `${id} - ${mainLabel}`.substring(0, 100);
+    // Example: "EST0001 - Juan Perez"
+    ```
+  </Step>
+
+  <Step title="Create Folder">
+    ```javascript
+    const finalFolder = getOrCreateFolder(yearFolder, entityName);
+
+    return {
+        id: finalFolder.getId(),
+        url: finalFolder.getUrl()
+    };
+    ```
+  </Step>
+
+  <Step title="Store in Database">
+    The folder ID and URL are saved to the entity record:
+
+    ```javascript
+    // Backend/core/EntityManager.js:40
+    const folderInfo = createEntityFolder(type, data);
+    data.ID_Carpeta_Drive = folderInfo.id;
+    data.URL_Carpeta_Drive = folderInfo.url;
+    ```
+  </Step>
+</Steps>
+
+## Folder Synchronization
+
+### Syncing Existing Entities
+
+If an entity's folder link is broken or missing, you can re-sync:
+
+<Steps>
+  <Step title="Access Folder Explorer">
+    Open the entity detail page. If no folder is linked, a warning appears:
+
+    ```jsx
+    // Fronted/src/components/common/FolderExplorer.jsx:130
+    <div className="...amber-warning...">
+        <h4>Carpeta No Vinculada</h4>
+        <p>Esta entidad no tiene una carpeta asignada en Drive</p>
+    </div>
+    ```
+  </Step>
+
+  <Step title="Click Sync Button">
+    Click **CREAR CARPETA** or the refresh icon. The system:
+    1. Searches for existing folder by entity ID
+    2. If found, re-links it
+    3. If not found, creates a new folder
+
+    ```javascript
+    // Backend/services/DriveManager.js:137
+    function syncEntityFolder(type, id) {
+        // Find entity in sheet
+        const rowData = findEntityById(type, id);
+        
+        // Check if folder exists
+        let folderId = rowData.ID_Carpeta_Drive;
+        let folder;
+        
+        if (folderId) {
+            try {
+                folder = DriveApp.getFolderById(folderId);
+                if (folder.isTrashed()) {
+                    folder = null;
+                }
+            } catch (e) {
+                folder = null;
+            }
+        }
+        
+        // Create if missing
+        if (!folder) {
+            const folderInfo = createEntityFolder(type, rowData);
+            // Update sheet with new folder info
+            updateSheetWithFolder(rowIndex, folderInfo);
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Verify Sync">
+    After sync, the folder explorer shows the linked folder:
+
+    ```jsx
+    // Fronted/src/components/common/FolderExplorer.jsx:57
+    <div className="...indigo-50...">
+        <h4>Carpeta en Google Drive</h4>
+        <span className="badge-green">SINCRONIZADO</span>
+        <a href={folderUrl} target="_blank">ABRIR</a>
+    </div>
+    ```
+  </Step>
+</Steps>
+
+## Managing Files in Drive Folders
+
+### Viewing Folder Contents
+
+```javascript
+// Backend/services/DriveManager.js:214
+function getEntityFiles(folderId) {
+    const folder = DriveApp.getFolderById(folderId);
+    const files = folder.getFiles();
+    const results = [];
+
+    while (files.hasNext()) {
+        const file = files.next();
+        results.push({
+            id: file.getId(),
+            name: file.getName(),
+            mimeType: file.getMimeType(),
+            url: file.getUrl(),
+            size: file.getSize(),
+            lastUpdated: file.getLastUpdated().toISOString()
+        });
+    }
+    return results;
+}
+```
+
+### Uploading Files to Folder
+
+<Note>
+  Files uploaded to entity folders are accessible directly via Google Drive links.
+</Note>
+
+```jsx
+// Click upload button in folder explorer
+<button onClick={() => setShowUploader(true)}>
+    <Upload size={14} />
+    SUBIR ARCHIVO
+</button>
+
+// FileUploader component handles the upload
+<FileUploader
+    folderId={folderId}
+    entityId={entityId}
+    entityType={entityType}
+    onUploadComplete={handleUploadComplete}
+/>
+```
+
+## Repository File Manager
+
+The Repository module provides advanced Drive navigation:
+
+Location: `Fronted/src/pages/repository/RepositoryHome.jsx`
+
+### Features
+
+- **Folder Tree Navigation** - Hierarchical folder browser
+- **File Grid/List View** - Toggle between viewing modes
+- **Search** - Find files across all folders
+- **Bulk Operations** - Select and manage multiple files
+- **Upload** - Add files to any folder
+- **Create Folders** - Organize files into subfolders
+
+### Navigating Folders
+
+<Steps>
+  <Step title="Load Root Folder">
+    ```javascript
+    // Fronted/src/pages/repository/RepositoryHome.jsx:55
+    const loadRootFolder = async () => {
+        const rootInfo = await api.drive.getRootFolder();
+        const structure = await api.drive.getFolderTree(rootInfo.id, 1);
+        setCurrentFolder(structure);
+        loadFolderContents(structure.id);
+    };
+    ```
+  </Step>
+
+  <Step title="Click Folder to Navigate">
+    ```javascript
+    // Fronted/src/pages/repository/RepositoryHome.jsx:102
+    const handleFolderClick = (folder) => {
+        setCurrentFolder(folder);
+        setBreadcrumbs(prev => [...prev, { id: folder.id, name: folder.name }]);
+        loadFolderContents(folder.id);
+    };
+    ```
+  </Step>
+
+  <Step title="Use Breadcrumbs to Navigate Back">
+    ```javascript
+    const handleBreadcrumbClick = (index) => {
+        const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
+        setBreadcrumbs(newBreadcrumbs);
+        const targetFolder = newBreadcrumbs[newBreadcrumbs.length - 1];
+        loadFolderContents(targetFolder.id);
+    };
+    ```
+  </Step>
+</Steps>
+
+## Folder Operations
+
+### Creating Subfolders
+
+```javascript
+const handleCreateFolder = async () => {
+    const { value: folderName } = await toast.prompt('Nueva Carpeta', 'Nombre:');
+    if (!folderName) return;
+
+    const result = await api.drive.createFolder(currentFolder.id, folderName);
+    if (result.success) {
+        toast.success('Éxito', 'Carpeta creada correctamente');
+        loadFolderContents(currentFolder.id);
+    }
+};
+```
+
+### Deleting Folders
+
+<Warning>
+  Deleting a folder moves it to Google Drive trash. It can be recovered from Drive for 30 days.
+</Warning>
+
+```javascript
+// Backend/services/DriveManager.js:243
+function deleteEntityFolder(folderId) {
+    const folder = DriveApp.getFolderById(folderId);
+    const folderName = folder.getName();
+    folder.setTrashed(true);
+
+    // Log action
+    logDocumentAction({
+        action: 'DELETE_ENTITY_FOLDER',
+        type: 'folder',
+        id: folderId,
+        name: folderName,
+        details: { trashed: true }
+    });
+
+    return { success: true, message: "Carpeta movida a la papelera" };
+}
+```
+
+## Caching Strategy
+
+The system implements caching to reduce Drive API calls:
+
+```javascript
+// Fronted/src/services/api.js:155
+const driveCache = new Map();
+
+const cachedDriveCall = async (key, fetcher, ttl = 60000) => {
+    const cached = driveCache.get(key);
+    const now = Date.now();
+
+    if (cached && (now - cached.timestamp < ttl)) {
+        console.log(`[Cache] Hit for ${key}`);
+        return cached.data;
+    }
+
+    const data = await fetcher();
+    driveCache.set(key, { timestamp: now, data });
+    return data;
+};
+
+// Usage
+api.drive.getFiles = (folderId) => 
+    cachedDriveCall(`files_${folderId}`, 
+        () => runGoogleFunction('getFiles', [folderId])
+    );
+```
+
+### Cache Invalidation
+
+Cache is cleared after write operations:
+
+```javascript
+// After upload, delete, rename, or move
+await api.drive.uploadFile(folderId, fileData);
+invalidateDriveCache();
+```
+
+## Permissions and Access
+
+### Folder Permissions
+
+By default, folders inherit permissions from the root folder. To set custom permissions:
+
+```javascript
+// Backend script
+function setFolderPermissions(folderId, email, role) {
+    const folder = DriveApp.getFolderById(folderId);
+    folder.addEditor(email);  // or addViewer(email)
+    return { success: true };
+}
+```
+
+### Public vs Private
+
+- **Private** (default): Only system users can access
+- **Shared**: Specific users granted access
+- **Public**: Anyone with link can view (not recommended)
+
+## Error Handling
+
+<Note>
+  Always handle Drive errors gracefully, as folders may be deleted or moved outside the system.
+</Note>
+
+```javascript
+try {
+    const folder = DriveApp.getFolderById(folderId);
+    if (folder.isTrashed()) {
+        return { success: false, message: 'Folder is in trash' };
+    }
+} catch (e) {
+    Logger.log('Folder access error: ' + e.toString());
+    return { success: false, message: 'Folder not found or no access' };
+}
+```
+
+## Best Practices
+
+<Note>
+  - Keep folder structure organized by year/cohort
+  - Use consistent naming conventions
+  - Regularly sync folders for entities
+  - Implement caching to reduce API calls
+  - Log all folder operations for audit trail
+  - Handle errors gracefully with user feedback
+</Note>
+
+## Monitoring Drive Usage
+
+Monitor Drive storage and usage:
+
+```javascript
+function getDriveStats() {
+    const root = getSystemRootFolder();
+    let fileCount = 0;
+    let totalSize = 0;
+
+    function countRecursive(folder) {
+        const files = folder.getFiles();
+        while (files.hasNext()) {
+            const file = files.next();
+            fileCount++;
+            totalSize += file.getSize();
+        }
+        
+        const subfolders = folder.getFolders();
+        while (subfolders.hasNext()) {
+            countRecursive(subfolders.next());
+        }
+    }
+
+    countRecursive(root);
+    
+    return {
+        fileCount,
+        totalSizeGB: (totalSize / (1024 * 1024 * 1024)).toFixed(2)
+    };
+}
+```
+
+## Next Steps
+
+- Learn about [Document Upload](/guides/document-upload) to add files to folders
+- Explore [Search Functionality](/guides/search-functionality) to find files
+- Review [Managing Entities](/guides/managing-entities) for entity-folder relationships

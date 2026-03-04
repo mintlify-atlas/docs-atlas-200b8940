@@ -1,0 +1,241 @@
+---
+title: 'Authentication'
+description: 'Learn how to manage authentication and user access in SGD-MCS'
+icon: 'shield-check'
+---
+
+## Overview
+
+SGD-MCS uses a protected route system to manage authentication and user access. The system is designed to integrate with Google Apps Script authentication while providing flexibility for future authentication methods.
+
+## Authentication Architecture
+
+The authentication system consists of two main components:
+
+1. **ProtectedRoute Component** - Guards private routes
+2. **Google Apps Script Integration** - Backend authentication via GAS
+
+### ProtectedRoute Component
+
+Location: `Fronted/src/components/common/ProtectedRoute.jsx:9`
+
+The `ProtectedRoute` component wraps all private application routes and redirects unauthenticated users to the login page.
+
+```jsx
+const ProtectedRoute = ({ children }) => {
+    const isAuthenticated = true; // Currently allows full access during development
+
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+
+    return children;
+};
+```
+
+<Note>
+The current implementation uses a hardcoded `true` value for development purposes. In production, this should be replaced with actual authentication logic.
+</Note>
+
+## Setting Up Authentication
+
+<Steps>
+  <Step title="Configure Route Protection">
+    All protected routes are wrapped in the `ProtectedRoute` component in `App.jsx:80`:
+
+    ```jsx
+    <Route path="/" element={
+      <ProtectedRoute>
+        <MainLayout darkMode={darkMode} setDarkMode={setDarkMode} />
+      </ProtectedRoute>
+    }>
+    ```
+  </Step>
+
+  <Step title="Implement Authentication Logic">
+    To add real authentication, modify the `ProtectedRoute` component:
+
+    ```jsx
+    import { useAuth } from '../context/AuthContext';
+
+    const ProtectedRoute = ({ children }) => {
+        const { isAuthenticated, loading } = useAuth();
+
+        if (loading) {
+            return <LoadingScreen />;
+        }
+
+        if (!isAuthenticated) {
+            return <Navigate to="/login" replace />;
+        }
+
+        return children;
+    };
+    ```
+  </Step>
+
+  <Step title="Add Authentication Context">
+    Create an AuthContext to manage authentication state across the application:
+
+    ```jsx
+    // context/AuthContext.jsx
+    import { createContext, useContext, useState, useEffect } from 'react';
+
+    const AuthContext = createContext();
+
+    export function AuthProvider({ children }) {
+        const [user, setUser] = useState(null);
+        const [loading, setLoading] = useState(true);
+
+        useEffect(() => {
+            // Check authentication status
+            checkAuth();
+        }, []);
+
+        const checkAuth = async () => {
+            try {
+                // Call Google Apps Script to verify session
+                const userInfo = await google.script.run.getCurrentUser();
+                setUser(userInfo);
+            } catch (error) {
+                setUser(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        return (
+            <AuthContext.Provider value={{ user, loading, isAuthenticated: !!user }}>
+                {children}
+            </AuthContext.Provider>
+        );
+    }
+
+    export const useAuth = () => useContext(AuthContext);
+    ```
+  </Step>
+
+  <Step title="Configure Google Apps Script Authentication">
+    In your Google Apps Script backend, add authentication methods:
+
+    ```javascript
+    // Backend/web/Auth.js
+    function getCurrentUser() {
+        const user = Session.getActiveUser();
+        return {
+            email: user.getEmail(),
+            name: user.getName(),
+            isAuthenticated: user.getEmail() !== ''
+        };
+    }
+
+    function doGet(e) {
+        // Verify user is authenticated
+        const user = Session.getActiveUser();
+        if (!user || user.getEmail() === '') {
+            return HtmlService.createHtmlOutput('Unauthorized').setStatusCode(401);
+        }
+        // Serve the app
+        return HtmlService.createTemplateFromFile('index').evaluate();
+    }
+    ```
+  </Step>
+</Steps>
+
+## User Session Management
+
+### Storing User Information
+
+User information is typically stored in the application state or localStorage:
+
+```jsx
+// Store user info after successful authentication
+const login = async (credentials) => {
+    const user = await api.auth.login(credentials);
+    localStorage.setItem('user', JSON.stringify(user));
+    setUser(user);
+};
+
+// Retrieve on app load
+const user = JSON.parse(localStorage.getItem('user'));
+```
+
+### Logout Functionality
+
+```jsx
+const logout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    navigate('/login');
+};
+```
+
+## Google Apps Script Authentication
+
+When deployed as a Google Apps Script web app, authentication is handled automatically by Google:
+
+<Steps>
+  <Step title="Set Deployment Permissions">
+    In Google Apps Script:
+    - Click **Deploy** > **New deployment**
+    - Choose **Web app**
+    - Set "Execute as" to **Me**
+    - Set "Who has access" to **Anyone with Google account** or specific domain
+  </Step>
+
+  <Step title="Access User Information">
+    ```javascript
+    function getUserInfo() {
+        const user = Session.getActiveUser();
+        return {
+            email: user.getEmail(),
+            effectiveUser: Session.getEffectiveUser().getEmail()
+        };
+    }
+    ```
+  </Step>
+</Steps>
+
+## Development vs Production
+
+### Development Mode
+
+In development (localhost), authentication is bypassed:
+
+```jsx
+const IS_DEV = import.meta.env.DEV;
+const isAuthenticated = IS_DEV ? true : checkRealAuth();
+```
+
+### Production Mode
+
+In production (Google Apps Script), use real authentication:
+
+```jsx
+if (!window.google || !window.google.script) {
+    // Development fallback
+    return mockUser;
+}
+
+// Production: call GAS authentication
+const user = await window.google.script.run.getCurrentUser();
+```
+
+## Best Practices
+
+<Warning>
+  - Never store sensitive credentials in localStorage or sessionStorage
+  - Always validate authentication on the backend (Google Apps Script)
+  - Use HTTPS for all production deployments
+  - Implement proper session timeouts
+</Warning>
+
+<Note>
+  The current implementation at `Fronted/src/components/common/ProtectedRoute.jsx:12` allows full access during development. Remember to implement proper authentication before deploying to production.
+</Note>
+
+## Next Steps
+
+- Learn about [Managing Entities](/guides/managing-entities) to work with student and teacher records
+- Explore [Document Upload](/guides/document-upload) to handle file management
+- Review [Drive Integration](/guides/drive-integration) for Google Drive synchronization

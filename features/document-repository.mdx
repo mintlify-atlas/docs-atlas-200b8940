@@ -1,0 +1,468 @@
+---
+title: Document Repository
+description: Google Drive integration for centralized document management
+icon: folder-tree
+---
+
+<Note>
+Manage all program documents through an integrated Google Drive file browser with upload, organization, and search capabilities.
+</Note>
+
+## Overview
+
+The Document Repository provides a unified interface to access, organize, and manage all Master's program documentation stored in Google Drive.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Drive Integration" icon="cloud">
+    Direct connection to Google Drive with real-time sync
+  </Card>
+  <Card title="File Browser" icon="folder-tree">
+    Navigate folder structures with breadcrumb navigation
+  </Card>
+  <Card title="Bulk Upload" icon="cloud-arrow-up">
+    Upload multiple files simultaneously with progress tracking
+  </Card>
+  <Card title="Universal Search" icon="magnifying-glass">
+    Search files and folders across the entire repository
+  </Card>
+</CardGroup>
+
+## Repository Home
+
+### Interface Layout
+
+  alt="Repository interface with sidebar and file grid"
+/>
+
+The repository interface consists of:
+
+1. **Top Navigation Bar**
+   - Breadcrumb navigation
+   - Search bar
+   - New folder button
+   - Refresh button
+   - View mode toggle (grid/list)
+   - Upload button
+
+2. **Left Sidebar** (Desktop only)
+   - Folder tree navigation
+   - Expandable/collapsible folders
+   - Current location highlight
+
+3. **Main Content Area**
+   - File and folder cards (grid view)
+   - File and folder rows (list view)
+   - Selection checkboxes
+
+### View Modes
+
+<Tabs>
+  <Tab title="Grid View">
+    
+    - Large file icons
+    - File thumbnails (for images/PDFs)
+    - Best for visual browsing
+  </Tab>
+  <Tab title="List View">
+    
+    - Compact table format
+    - More files visible
+    - Better for large folders
+  </Tab>
+</Tabs>
+
+```jsx
+const [viewMode, setViewMode] = useState(
+  localStorage.getItem('repoViewMode') || 'grid'
+);
+```
+
+## Navigation
+
+### Breadcrumb Trail
+
+The breadcrumb shows your current location:
+
+```
+🏠 Google Drive > Estudiantes > 2024-1 > EST-2024-01-001
+```
+
+- Click any level to jump to that folder
+- Home icon returns to root
+- Current location is highlighted in blue
+
+### Folder Tree Sidebar
+
+Expand folders to see nested structure:
+
+- ▶️ Click arrow to expand
+- ▼ Click arrow to collapse  
+- 📁 Click folder name to navigate
+- Current folder has blue background
+
+<Tip>
+The folder tree loads dynamically. Only visible folders are expanded to improve performance.
+</Tip>
+
+## File Management
+
+### Uploading Files
+
+<Steps>
+  <Step title="Click Upload Button">
+    Located in top-right corner with cloud upload icon
+  </Step>
+  <Step title="Select Files">
+    Drag and drop or click to browse (multi-select supported)
+  </Step>
+  <Step title="Monitor Progress">
+    Progress bar shows upload status for each file
+  </Step>
+  <Step title="Automatic Refresh">
+    File list refreshes automatically when upload completes
+  </Step>
+</Steps>
+
+### File Uploader Modal
+
+  alt="File upload modal with progress bars"
+/>
+
+Features:
+
+- Multiple file selection
+- Drag-and-drop zone
+- Individual progress bars
+- Cancel option per file
+- Success/error indicators
+
+```jsx
+// Upload to current folder
+const handleUpload = async (files) => {
+  for (const file of files) {
+    await api.drive.uploadFile(currentFolder.id, file);
+  }
+  handleRefresh();
+};
+```
+
+### Creating Folders
+
+<Steps>
+  <Step title="Click New Folder">
+    Plus icon in the toolbar
+  </Step>
+  <Step title="Enter Name">
+    Popup dialog requests folder name
+  </Step>
+  <Step title="Confirm">
+    Folder is created in current location
+  </Step>
+</Steps>
+
+<Warning>
+Folder names must be unique within the same parent folder. Duplicate names will show an error.
+</Warning>
+
+### File Actions
+
+Hover over any file or folder to reveal action buttons:
+
+| Icon | Action | Description |
+|------|--------|-------------|
+| 👁️ | Preview | View file preview (images, PDFs) |
+| ⬇️ | Download | Download file to your computer |
+| 🔗 | Copy Link | Copy shareable Drive link |
+| 📂 | Open in Drive | Open file in Google Drive web interface |
+| 🗑️ | Delete | Move file to Drive trash |
+
+### Bulk Selection
+
+<Steps>
+  <Step title="Enable Selection">
+    Click checkboxes on files/folders
+  </Step>
+  <Step title="Selection Counter">
+    Top-right shows "X seleccionados"
+  </Step>
+  <Step title="Bulk Actions">
+    Delete button appears in toolbar
+  </Step>
+  <Step title="Clear Selection">
+    Click X or refresh page
+  </Step>
+</Steps>
+
+  alt="Multiple files selected with action bar"
+/>
+
+## Search Functionality
+
+### Universal Search
+
+The search bar performs **universal search** across:
+
+- File names
+- Folder names
+- File contents (for supported types)
+- Metadata
+
+```jsx
+const handleSearch = async () => {
+  const results = await api.drive.searchUniversal(searchQuery);
+  const foundFiles = results.filter(item => item.type === 'file');
+  const foundFolders = results.filter(item => item.type === 'folder');
+  
+  setFiles(foundFiles);
+  setFolders(foundFolders);
+};
+```
+
+### Search Results
+
+Search results show:
+
+- **File/Folder Name**: Highlighted matches
+- **Parent Folder Path**: Where the file is located
+- **Last Modified**: Date timestamp
+- **File Type**: Icon indicator
+
+<Tip>
+Press Enter or click the search icon to trigger search. Results update in real-time as you type (500ms debounce).
+</Tip>
+
+### Clearing Search
+
+Click the X button in the search bar to:
+
+- Clear search query
+- Return to current folder view
+- Reset filters
+
+## File Types & Icons
+
+### Supported File Types
+
+The repository recognizes and displays icons for:
+
+```jsx
+const fileIcons = {
+  // Documents
+  'pdf': <FilePdf />,
+  'doc': <FileWord />,
+  'docx': <FileWord />,
+  
+  // Spreadsheets
+  'xls': <FileExcel />,
+  'xlsx': <FileExcel />,
+  'csv': <FileSpreadsheet />,
+  
+  // Presentations
+  'ppt': <FilePowerpoint />,
+  'pptx': <FilePowerpoint />,
+  
+  // Images
+  'jpg': <FileImage />,
+  'jpeg': <FileImage />,
+  'png': <FileImage />,
+  'gif': <FileImage />,
+  
+  // Archives
+  'zip': <FileArchive />,
+  'rar': <FileArchive />,
+  
+  // Default
+  'default': <File />
+};
+```
+
+### File Thumbnails
+
+For image files and PDFs, the system displays thumbnails:
+
+- Auto-generated from Drive API
+- 200x200px preview size
+- Cached for performance
+
+## Folder Structure
+
+### Recommended Organization
+
+```
+📁 Google Drive (Root)
+├── 📁 Estudiantes/
+│   ├── 📁 2024-1/
+│   │   ├── 📁 EST-2024-01-001/
+│   │   ├── 📁 EST-2024-01-002/
+│   │   └── ...
+│   └── 📁 2024-2/
+│       └── ...
+├── 📁 Docentes/
+│   ├── 📁 DOC-2024-01-001/
+│   └── ...
+├── 📁 Tesis/
+│   ├── 📁 2024/
+│   │   ├── 📁 [Student Name] - TES-2024-01-001/
+│   │   └── ...
+│   └── 📁 2023/
+│       └── ...
+├── 📁 Eventos/
+│   ├── 📁 Seminarios/
+│   ├── 📁 Congresos/
+│   └── ...
+└── 📁 Administrativo/
+    ├── 📁 Actas/
+    ├── 📁 Resoluciones/
+    └── ...
+```
+
+### Auto-Created Folders
+
+The system automatically creates folders when:
+
+- A new student is registered (with toggle enabled)
+- A new teacher is added
+- A new thesis is created
+- An event is scheduled
+
+<Note>
+Auto-created folders follow naming conventions based on entity type and ID.
+</Note>
+
+## Folder Explorer Component
+
+The `<FolderExplorer>` component is used throughout the system:
+
+```jsx
+<FolderExplorer
+  folderId={formData.ID_Carpeta_Drive}
+  folderUrl={formData.URL_Carpeta_Drive}
+  entityType="estudiante"
+  entityId={formData.ID_Estudiante}
+  entityData={formData}
+/>
+```
+
+### Integration Points
+
+- Student forms (Documents tab)
+- Teacher forms
+- Thesis forms
+- Event forms
+- Standalone repository page
+
+## Refresh & Sync
+
+### Manual Refresh
+
+Click the refresh button (🔄) to:
+
+- Reload current folder contents
+- Sync with Drive changes
+- Update folder tree
+- Clear cache
+
+### Automatic Refresh
+
+The repository auto-refreshes after:
+
+- File upload completes
+- Folder is created
+- File/folder is deleted
+- Navigation to new folder
+
+```jsx
+const handleRefresh = () => {
+  if (currentFolder) {
+    loadFolderContents(currentFolder.id);
+  } else {
+    loadRootFolder();
+  }
+  setTreeRefreshKey(prev => prev + 1); // Triggers tree reload
+};
+```
+
+## Performance Optimization
+
+<CardGroup cols={2}>
+  <Card title="Lazy Loading" icon="hourglass">
+    Folders load on-demand when expanded
+  </Card>
+  <Card title="Debounced Search" icon="clock">
+    Search waits 500ms after typing stops
+  </Card>
+  <Card title="Cached Thumbnails" icon="database">
+    File previews are cached in browser
+  </Card>
+  <Card title="Parallel Requests" icon="layer-group">
+    File list and folder tree load simultaneously
+  </Card>
+</CardGroup>
+
+### Loading States
+
+  alt="Skeleton loaders for files and folders"
+/>
+
+- Skeleton cards during load
+- Spinner icon on refresh button
+- Progress bars during upload
+
+## Error Handling
+
+### Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| **No se pudo conectar con Drive** | Drive API connection failed | Check internet connection and retry |
+| **Carpeta no encontrada** | Folder was deleted or moved | Navigate back to parent folder |
+| **Permiso denegado** | Insufficient Drive permissions | Contact system administrator |
+| **Archivo muy grande** | File exceeds upload limit | Use Google Drive web interface for large files |
+
+<Warning>
+If you see repeated connection errors, the Drive API credentials may need to be refreshed. Contact your system administrator.
+</Warning>
+
+## Source Code Reference
+
+Key components:
+
+- Repository home: `Fronted/src/pages/repository/RepositoryHome.jsx:14`
+- File manager: `Fronted/src/pages/repository/FileManager.jsx`
+- File uploader: `Fronted/src/pages/repository/FileUploader.jsx`
+- Folder tree: `Fronted/src/pages/repository/FolderTree.jsx`
+- Folder explorer: `Fronted/src/components/common/FolderExplorer.jsx`
+- Drive API: `Backend/services/DriveManager.js`
+
+## API Integration
+
+The repository uses Google Drive API v3:
+
+```javascript
+// Backend
+api.drive = {
+  getRootFolder: () => GET /api/drive/root,
+  getFolderTree: (folderId, depth) => GET /api/drive/tree/${folderId},
+  getFiles: (folderId) => GET /api/drive/files/${folderId},
+  uploadFile: (folderId, file) => POST /api/drive/upload,
+  createFolder: (parentId, name) => POST /api/drive/folder,
+  deleteFile: (fileId) => DELETE /api/drive/file/${fileId},
+  searchUniversal: (query) => GET /api/drive/search?q=${query}
+}
+```
+
+## Related Features
+
+<CardGroup cols={3}>
+  <Card title="Student Management" icon="user-graduate" href="/features/student-management">
+    Access student document folders
+  </Card>
+  <Card title="Thesis Tracking" icon="book" href="/features/thesis-tracking">
+    Manage thesis documents
+  </Card>
+  <Card title="Teacher Management" icon="chalkboard-user" href="/features/teacher-management">
+    Access faculty documents
+  </Card>
+</CardGroup>

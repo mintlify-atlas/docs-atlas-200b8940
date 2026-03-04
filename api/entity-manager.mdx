@@ -1,0 +1,334 @@
+---
+title: "EntityManager"
+description: "Universal CRUD operations for all database entities"
+---
+
+## Overview
+
+EntityManager provides universal create, read, update, and delete operations for all entity types in the SGD-MCS system. It handles automatic ID generation, Drive folder creation, and audit logging.
+
+**Source**: `~/workspace/source/Backend/core/EntityManager.js`
+
+## createItem
+
+Creates a new entity record and optionally its Drive folder.
+
+<ParamField path="type" type="string" required>
+  Entity type: `estudiante`, `docente`, `externo`, `evento`, or `tesis`
+</ParamField>
+
+<ParamField path="data" type="object" required>
+  Entity data object with fields matching the Google Sheet columns
+</ParamField>
+
+<Accordion title="Common Fields by Entity Type">
+  **Estudiante (Student)**
+  - `Nombre1`, `Nombre2`: First and middle names
+  - `Apellido1`, `Apellido2`: Last names
+  - `Cedula`: ID number
+  - `Email`: Email address
+  - `Cohorte_Ingreso`: Cohort (e.g., "2024-1")
+  - `Estado`: Status
+
+  **Docente (Teacher)**
+  - `Nombre1`, `Apellido1`: Name
+  - `Cedula`: ID number
+  - `Email`: Email address
+  - `Especialidad`: Specialty area
+
+  **Tesis (Thesis)**
+  - `Titulo_Investigacion`: Research title
+  - `Año`: Year
+  - `ID_Estudiante`: Associated student ID
+  - `Calificacion`: Grade
+
+  **Evento (Event)**
+  - `Nombre_Evento`: Event name
+  - `Fecha`: Date
+  - `Tipo`: Event type
+
+  **Externo (External)**
+  - `Nombre1`, `Apellido1`: Name
+  - `Email`: Email address
+  - `Institucion`: Institution
+</Accordion>
+
+<ParamField path="data._createFolder" type="boolean" default="true">
+  Set to `false` to skip automatic Drive folder creation
+</ParamField>
+
+<ResponseField name="success" type="boolean" required>
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Result message ("Creado correctamente" or error)
+</ResponseField>
+
+<ResponseField name="id" type="string">
+  Auto-generated entity ID (e.g., "EST0001")
+</ResponseField>
+
+### Example
+
+```javascript
+// Create a student with automatic ID and folder
+google.script.run
+  .withSuccessHandler((response) => {
+    console.log('Student created:', response.id);
+    // response = { success: true, message: 'Creado correctamente', id: 'EST0001' }
+  })
+  .createItem('estudiante', {
+    Nombre1: 'María',
+    Apellido1: 'González',
+    Cedula: '1234567890',
+    Email: 'maria.gonzalez@example.com',
+    Cohorte_Ingreso: '2024-1',
+    Estado: 'Activo'
+  });
+
+// Create without Drive folder
+google.script.run
+  .withSuccessHandler((response) => {
+    console.log('Event created:', response.id);
+  })
+  .createItem('evento', {
+    Nombre_Evento: 'Defensa de Tesis',
+    Fecha: '15/06/2024',
+    Tipo: 'Academico',
+    _createFolder: false  // Skip folder creation
+  });
+```
+
+<Note>
+**Automatic Features:**
+- ID generation using prefix + counter (EST0001, DOC0042, etc.)
+- Drive folder created at: `Root/[EntityType]/[Year or Cohort]/[ID - Name]`
+- Audit fields populated: `Fecha_Registro`, `Usuario_Registro`
+- All actions logged to audit trail
+</Note>
+
+---
+
+## updateItem
+
+Updates an existing entity record.
+
+<ParamField path="type" type="string" required>
+  Entity type: `estudiante`, `docente`, `externo`, `evento`, or `tesis`
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Entity ID to update (e.g., "EST0001")
+</ParamField>
+
+<ParamField path="data" type="object" required>
+  Object containing only the fields to update
+</ParamField>
+
+<ResponseField name="success" type="boolean" required>
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Result message ("Actualizado correctamente" or error)
+</ResponseField>
+
+### Example
+
+```javascript
+// Update student email and status
+google.script.run
+  .withSuccessHandler((response) => {
+    if (response.success) {
+      console.log('Student updated successfully');
+    }
+  })
+  .updateItem('estudiante', 'EST0001', {
+    Email: 'new.email@example.com',
+    Estado: 'Graduado'
+  });
+
+// Update thesis grade
+google.script.run
+  .withSuccessHandler((response) => {
+    console.log(response.message);
+  })
+  .updateItem('tesis', 'TES0001', {
+    Calificacion: 4.5,
+    Estado: 'Aprobada'
+  });
+```
+
+<Note>
+**Automatic Updates:**
+- `Ultima_Actualizacion` timestamp updated automatically
+- `Ultimo_Usuario` set to current user's email
+- If entity has no Drive folder, `syncEntityFolder()` is called automatically
+- All updates logged to audit trail
+</Note>
+
+---
+
+## deleteItem
+
+Deletes an entity record and moves its Drive folder to trash.
+
+<ParamField path="type" type="string" required>
+  Entity type: `estudiante`, `docente`, `externo`, `evento`, or `tesis`
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Entity ID to delete (e.g., "EST0001")
+</ParamField>
+
+<ResponseField name="success" type="boolean" required>
+  Whether the operation succeeded
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Result message ("Eliminado correctamente" or "ID no encontrado")
+</ResponseField>
+
+### Example
+
+```javascript
+// Delete a student
+google.script.run
+  .withSuccessHandler((response) => {
+    if (response.success) {
+      console.log('Student and folder deleted');
+    } else {
+      alert('Error: ' + response.message);
+    }
+  })
+  .deleteItem('estudiante', 'EST0001');
+```
+
+<Warning>
+**Destructive Operation:**
+- Permanently removes the row from the Google Sheet
+- Moves associated Drive folder to trash (can be recovered from Drive trash)
+- This operation cannot be undone from the application
+</Warning>
+
+---
+
+## bulkUpdateItems
+
+Updates multiple entities at once with the same data.
+
+<ParamField path="type" type="string" required>
+  Entity type: `estudiante`, `docente`, `externo`, `evento`, or `tesis`
+</ParamField>
+
+<ParamField path="ids" type="string[]" required>
+  Array of entity IDs to update
+</ParamField>
+
+<ParamField path="updates" type="object" required>
+  Object containing fields to update on all entities
+</ParamField>
+
+<ResponseField name="success" type="boolean" required>
+  Always returns `true`
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Count of successfully updated records
+</ResponseField>
+
+### Example
+
+```javascript
+// Update status for multiple students
+google.script.run
+  .withSuccessHandler((response) => {
+    console.log(response.message);
+    // Output: "Se actualizaron 3 registros."
+  })
+  .bulkUpdateItems('estudiante', 
+    ['EST0001', 'EST0002', 'EST0003'],
+    { Estado: 'Inactivo' }
+  );
+
+// Assign cohort to multiple students
+google.script.run
+  .withSuccessHandler((response) => {
+    console.log(response.message);
+  })
+  .bulkUpdateItems('estudiante',
+    ['EST0010', 'EST0011', 'EST0012', 'EST0013'],
+    { Cohorte_Ingreso: '2024-2' }
+  );
+```
+
+---
+
+## bulkDeleteItems
+
+Deletes multiple entities at once.
+
+<ParamField path="type" type="string" required>
+  Entity type: `estudiante`, `docente`, `externo`, `evento`, or `tesis`
+</ParamField>
+
+<ParamField path="ids" type="string[]" required>
+  Array of entity IDs to delete
+</ParamField>
+
+<ResponseField name="success" type="boolean" required>
+  Always returns `true`
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Count of successfully deleted records
+</ResponseField>
+
+### Example
+
+```javascript
+// Delete multiple events
+google.script.run
+  .withSuccessHandler((response) => {
+    console.log(response.message);
+    // Output: "Se eliminaron 2 registros."
+  })
+  .bulkDeleteItems('evento', ['EVE0001', 'EVE0002']);
+```
+
+<Warning>
+Bulk deletion is destructive and affects multiple records. Ensure you have confirmation before calling this function.
+</Warning>
+
+## Implementation Details
+
+### ID Generation
+
+From `EntityManager.js:26-34`:
+
+- IDs use 3-letter prefix + zero-padded counter
+- Counter stored in Config sheet: `Siguiente_ID_[EntityType]`
+- Format: `EST0001`, `DOC0042`, `TES0123`, etc.
+- IDs are unique per entity type
+
+### Drive Folder Naming
+
+From `EntityManager.js:114-118`:
+
+- Format: `[ID] - [Name]` (e.g., "EST0001 - Juan Pérez")
+- Truncated to 100 characters maximum
+- Uses `Titulo_Investigacion` for thesis, `Nombre_Evento` for events
+
+### Data Normalization
+
+The `normalizeData()` function ensures consistent data formats before saving to Sheets.
+
+## Error Handling
+
+All functions are wrapped in try-catch blocks. Common errors:
+
+- **"Tipo no válido"**: Invalid entity type parameter
+- **"Hoja [name] no encontrada"**: Sheet not found in database
+- **"ID no encontrado"**: Entity ID doesn't exist
+- **Error string**: Other exceptions (permissions, Drive errors, etc.)

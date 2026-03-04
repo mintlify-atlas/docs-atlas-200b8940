@@ -1,0 +1,516 @@
+---
+title: 'Installation'
+description: 'Complete setup guide for SGD-MCS development and deployment'
+icon: 'download'
+---
+
+## System Requirements
+
+<CardGroup cols={2}>
+  <Card title="Development" icon="code">
+    - Node.js 18+
+    - npm or yarn
+    - Git
+    - Code editor (VS Code recommended)
+  </Card>
+  <Card title="Deployment" icon="cloud">
+    - Google Account
+    - Google Apps Script access
+    - Google Drive storage
+    - clasp CLI installed
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+SGD-MCS consists of three main components:
+
+1. **Frontend** (React + Vite) - Single-page application
+2. **Backend** (Google Apps Script) - Server-side API and web hosting
+3. **Database** (Google Sheets) - Data persistence layer
+
+<Note>
+The entire React app is bundled into a **single HTML file** using `vite-plugin-singlefile`, making deployment to Google Apps Script seamless.
+</Note>
+
+---
+
+## Frontend Installation
+
+### 1. Navigate to Frontend Directory
+
+```bash
+cd ~/workspace/source/Fronted
+```
+
+### 2. Install Dependencies
+
+The project uses the following key dependencies:
+
+```json
+{
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.11.0",
+    "lucide-react": "^0.562.0",
+    "apexcharts": "^5.6.0",
+    "react-apexcharts": "^2.0.1",
+    "recharts": "^3.6.0",
+    "leaflet": "^5.0.0",
+    "react-leaflet": "^5.0.0",
+    "xlsx": "^0.18.5",
+    "sweetalert2": "^11.26.17",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2"
+  }
+}
+```
+
+Install them:
+
+```bash
+npm install
+```
+
+### 3. Development Server
+
+Run the dev server for local development:
+
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`.
+
+<Warning>
+In development mode, the app cannot communicate with Google Apps Script backend. You'll need mock data or a local API proxy for testing.
+</Warning>
+
+### 4. Build Configuration
+
+The `vite.config.js` is configured to output a single HTML file:
+
+```javascript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { viteSingleFile } from 'vite-plugin-singlefile';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react(), viteSingleFile()],
+  build: {
+    outDir: '../backend/web',
+    emptyOutDir: false,
+    target: 'esnext',
+    assetsInlineLimit: 100000000,
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true,
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+});
+```
+
+**Key points:**
+- Output directory: `../backend/web` (inside Backend folder)
+- All assets are inlined (images, CSS, JS)
+- Single bundle with no code splitting
+
+### 5. Build for Production
+
+```bash
+npm run build
+```
+
+This generates `~/workspace/source/Backend/web/index.html`.
+
+---
+
+## Backend Installation
+
+### 1. Install clasp CLI
+
+Google's Command Line Apps Script Projects tool:
+
+```bash
+npm install -g @google/clasp
+```
+
+### 2. Authenticate with Google
+
+```bash
+clasp login
+```
+
+This opens a browser window for OAuth authentication.
+
+### 3. Backend Structure
+
+The backend is organized as follows:
+
+```
+Backend/
+├── .clasp.json          # clasp configuration
+├── appsscript.json      # Apps Script manifest
+├── core/
+│   ├── Main.js          # Entry points (doGet, API proxies)
+│   ├── config.js        # Global configuration
+│   ├── controller.js    # API controllers
+│   └── EntityManager.js # CRUD operations
+├── services/
+│   ├── DataService.js
+│   ├── DriveManager.js  # Google Drive integration
+│   ├── DriveFileManager.js
+│   └── SearchService.js
+├── utils/
+│   ├── Utils.js
+│   └── DataUtils.js
+└── web/
+    └── index.html       # React app (generated)
+```
+
+### 4. Configure Database
+
+#### Create Google Sheets Database
+
+1. Go to [Google Sheets](https://sheets.google.com)
+2. Create a new spreadsheet
+3. Create the following sheets (tabs):
+
+<Steps>
+<Step title="Core Entities">
+- `Estudiantes` - Student management
+- `Docentes` - Faculty/teachers
+- `Tesis` - Thesis projects
+- `Eventos` - Events and activities
+</Step>
+
+<Step title="Supporting Tables">
+- `Instituciones` - Partner institutions
+- `ParticipantesExternos` - External participants
+- `Participaciones` - Event participation (M:N)
+</Step>
+
+<Step title="System Tables">
+- `Historial_Documentos` - Document audit trail
+- `Configuracion` - System settings
+</Step>
+</Steps>
+
+#### Update config.js
+
+Edit `~/workspace/source/Backend/core/config.js`:
+
+```javascript
+// Your Google Sheets ID (from URL)
+const SPREADSHEET_ID = '13DnE1bamQgWQ2G5cuGq9vdlP-tHu6QgdBtZptqKkLuc';
+
+// Optional: Google Drive root folder ID
+const ROOT_FOLDER_ID = '1vlf1dwjSDa6pirU80HhCexpYvCOetWeb';
+
+// Sheet name mapping
+const SHEETS = {
+  ESTUDIANTES: 'Estudiantes',
+  DOCENTES: 'Docentes',
+  EXTERNOS: 'ParticipantesExternos',
+  INSTITUCIONES: 'Instituciones',
+  TESIS: 'Tesis',
+  EVENTOS: 'Eventos',
+  PARTICIPACIONES: 'Participaciones',
+  HISTORIAL: 'Historial_Documentos',
+  CONFIG: 'Configuracion'
+};
+```
+
+<Info>
+The `getDB()` function in `config.js` provides centralized access to the spreadsheet across all backend modules.
+</Info>
+
+### 5. Apps Script Manifest
+
+The `appsscript.json` defines required OAuth scopes:
+
+```json
+{
+  "timeZone": "America/Bogota",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE_ANONYMOUS"
+  }
+}
+```
+
+**Scopes explained:**
+- `spreadsheets` - Read/write Google Sheets database
+- `drive` - Manage files and folders in Google Drive
+- `script.external_request` - Make external HTTP requests (if needed)
+
+### 6. Initialize clasp Project
+
+<CodeGroup>
+```bash New Project
+cd ~/workspace/source/Backend
+clasp create --type webapp --title "SGD-MCS v3.0" --rootDir ./
+```
+
+```bash Existing Project
+cd ~/workspace/source/Backend
+# .clasp.json already exists with scriptId
+clasp push
+```
+</CodeGroup>
+
+The `.clasp.json` file:
+
+```json
+{
+  "scriptId": "1U2i634P9WpSFvsHVdk-8eAeeJthvx4aswpSGmv-5n0g0bJ_SGvZdNuvS",
+  "rootDir": "./"
+}
+```
+
+### 7. Deploy Web App
+
+```bash
+# Push latest code
+clasp push
+
+# Create deployment
+clasp deploy --description "Production v3.0"
+
+# Open Apps Script editor
+clasp open
+```
+
+In the Apps Script editor:
+1. Click **Deploy** > **New deployment**
+2. Select type: **Web app**
+3. Description: `SGD-MCS Production`
+4. Execute as: `Me` (or `User accessing the web app`)
+5. Who has access: `Anyone` or `Only myself`
+6. Click **Deploy**
+
+<Note>
+If you choose "User accessing the web app", each user will need to authorize the app with their Google account.
+</Note>
+
+---
+
+## Google Drive Setup
+
+### Folder Structure
+
+The system automatically creates folders in Google Drive:
+
+```
+SGD_DATABASE_ROOT/
+├── Estudiantes/
+│   ├── {StudentID}/
+│   │   ├── Documentos/
+│   │   ├── Certificados/
+│   │   └── Tesis/
+├── Docentes/
+│   └── {TeacherID}/
+├── Tesis/
+│   └── {ThesisID}/
+├── Eventos/
+│   └── {EventID}/
+└── Templates/
+    ├── Certificado_Estudiante.docx
+    └── Constancia_Evento.docx
+```
+
+The `DriveManager.js` service handles this:
+
+```javascript
+function getSystemRootFolder() {
+  if (ROOT_FOLDER_ID && ROOT_FOLDER_ID !== "") {
+    try {
+      return DriveApp.getFolderById(ROOT_FOLDER_ID);
+    } catch (e) {
+      Logger.log("Error loading root folder, using fallback...");
+    }
+  }
+  
+  // Fallback: Create in user's Drive root
+  const root = DriveApp.getRootFolder();
+  return getOrCreateFolder(root, "SGD_DATABASE_ROOT");
+}
+```
+
+---
+
+## Verification
+
+### Test Backend API
+
+In the Apps Script editor, run these functions manually:
+
+1. **Test Database Connection**
+   ```javascript
+   function testDB() {
+     const db = getDB();
+     Logger.log('Database name: ' + db.getName());
+   }
+   ```
+
+2. **Test Dashboard Stats**
+   ```javascript
+   function testStats() {
+     const result = getDashboardStats();
+     Logger.log(result);
+   }
+   ```
+
+3. **Test Drive Access**
+   ```javascript
+   function testDrive() {
+     const folder = getSystemRootFolder();
+     Logger.log('Root folder: ' + folder.getUrl());
+   }
+   ```
+
+### Test Frontend
+
+Open the Web app URL. Check:
+
+- Dashboard loads with statistics
+- Navigation sidebar works
+- Student/Teacher lists populate from Sheets
+- File upload connects to Drive
+
+---
+
+## Development Workflow
+
+<Steps>
+<Step title="Make Frontend Changes">
+```bash
+cd ~/workspace/source/Fronted
+# Edit React components
+npm run dev  # Test locally
+```
+</Step>
+
+<Step title="Build and Deploy">
+```bash
+npm run build
+cd ../Backend
+clasp push
+```
+</Step>
+
+<Step title="Test in Browser">
+Refresh the Web app URL to see changes.
+</Step>
+</Steps>
+
+<Warning>
+Always run `npm run build` before `clasp push` to ensure the latest frontend is deployed.
+</Warning>
+
+---
+
+## Environment-Specific Configuration
+
+### Development
+
+- Use mock data in React components
+- Test UI changes with `npm run dev`
+- Avoid calling real Google APIs
+
+### Staging
+
+- Deploy to a separate Apps Script project
+- Use a test Google Sheet database
+- Restrict access to internal users
+
+### Production
+
+- Use the main Google Sheet database
+- Enable proper access controls
+- Monitor Apps Script quota usage
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="clasp push fails with 'Manifest file not found'">
+    Ensure `appsscript.json` exists in the Backend directory:
+    ```bash
+    ls ~/workspace/source/Backend/appsscript.json
+    ```
+  </Accordion>
+  
+  <Accordion title="Build produces multiple files instead of single HTML">
+    Check that `vite-plugin-singlefile` is installed:
+    ```bash
+    npm install vite-plugin-singlefile --save-dev
+    ```
+    
+    Verify `vite.config.js` includes:
+    ```javascript
+    import { viteSingleFile } from 'vite-plugin-singlefile';
+    
+    plugins: [react(), viteSingleFile()]
+    ```
+  </Accordion>
+  
+  <Accordion title="Apps Script shows permission errors">
+    1. Check OAuth scopes in `appsscript.json`
+    2. Re-authorize the app in the Apps Script editor
+    3. Ensure the deploying account has access to Sheets and Drive
+  </Accordion>
+  
+  <Accordion title="Frontend can't call backend functions">
+    In production, use `google.script.run` to call backend functions:
+    
+    ```javascript
+    // Frontend code
+    google.script.run
+      .withSuccessHandler((data) => console.log(data))
+      .withFailureHandler((error) => console.error(error))
+      .getStudents();
+    ```
+    
+    Ensure proxy functions exist in `Main.js`:
+    ```javascript
+    function getStudents() { return listStudents(); }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand the system design and data flow
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Explore backend API functions
+  </Card>
+  <Card title="Frontend Components" icon="puzzle-piece" href="/components">
+    Learn about React component structure
+  </Card>
+  <Card title="Customization" icon="palette" href="/customization">
+    Customize colors, themes, and branding
+  </Card>
+</CardGroup>

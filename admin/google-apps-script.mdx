@@ -1,0 +1,436 @@
+---
+title: 'Google Apps Script Setup'
+description: 'Deploy and configure the Google Apps Script backend for SGD-MCS'
+icon: 'google'
+---
+
+## Overview
+
+SGD-MCS backend runs on Google Apps Script (GAS), a serverless JavaScript platform that provides direct integration with Google Workspace services including Sheets and Drive.
+
+<Info>
+  The backend uses **Apps Script V8 runtime** for modern JavaScript support including ES6+ features.
+</Info>
+
+## Prerequisites
+
+<CardGroup cols={2}>
+  <Card title="Google Account" icon="user">
+    A Google Workspace or Gmail account with access to Google Drive and Sheets
+  </Card>
+  
+  <Card title="Node.js & clasp" icon="terminal">
+    Optional: Install clasp CLI for command-line deployment
+    ```bash
+    npm install -g @google/clasp
+    ```
+  </Card>
+  
+  <Card title="Source Code" icon="code">
+    Clone the repository and navigate to the Backend directory
+  </Card>
+  
+  <Card title="Google Sheets Database" icon="table">
+    A properly configured Google Sheets database (see Database Structure)
+  </Card>
+</CardGroup>
+
+## Apps Script Manifest
+
+The `appsscript.json` file configures the Apps Script project:
+
+```json
+{
+    "timeZone": "America/Bogota",
+    "dependencies": {},
+    "exceptionLogging": "STACKDRIVER",
+    "runtimeVersion": "V8",
+    "oauthScopes": [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/script.external_request"
+    ],
+    "webapp": {
+        "executeAs": "USER_DEPLOYING",
+        "access": "ANYONE_ANONYMOUS"
+    }
+}
+```
+
+**Location:** Backend/appsscript.json
+
+### Configuration Options
+
+<ParamField path="timeZone" type="string" default="America/Bogota">
+  Sets the default timezone for date/time operations. Uses IANA timezone identifiers.
+</ParamField>
+
+<ParamField path="runtimeVersion" type="string" default="V8">
+  JavaScript runtime version. `V8` enables modern ES6+ syntax, arrow functions, and more.
+</ParamField>
+
+<ParamField path="exceptionLogging" type="string" default="STACKDRIVER">
+  Error logging destination. `STACKDRIVER` logs to Google Cloud Logging for better debugging.
+</ParamField>
+
+<ParamField path="oauthScopes" type="array" required>
+  OAuth 2.0 scopes required by the application:
+  
+  - `spreadsheets` - Read/write Google Sheets data
+  - `drive` - Create and manage Drive folders/files
+  - `script.external_request` - Make external HTTP requests (if needed)
+</ParamField>
+
+<ParamField path="webapp.executeAs" type="string" default="USER_DEPLOYING">
+  Execution context. `USER_DEPLOYING` runs code with deployer's permissions.
+</ParamField>
+
+<ParamField path="webapp.access" type="string" default="ANYONE_ANONYMOUS">
+  Access control. `ANYONE_ANONYMOUS` allows public access without authentication.
+  
+  <Warning>
+    For production, consider changing to `ANYONE` (requires login) or `DOMAIN` (organization only) for better security.
+  </Warning>
+</ParamField>
+
+## Deployment Methods
+
+### Method 1: Using clasp (Recommended)
+
+<Steps>
+  <Step title="Install clasp">
+    ```bash
+    npm install -g @google/clasp
+    ```
+  </Step>
+  
+  <Step title="Login to Google">
+    ```bash
+    clasp login
+    ```
+    This opens a browser window for Google authentication.
+  </Step>
+  
+  <Step title="Create New Project">
+    Navigate to the Backend directory and create a new Apps Script project:
+    ```bash
+    cd source/Backend
+    clasp create --title "SGD-MCS Backend" --type webapp
+    ```
+    
+    This generates a `.clasp.json` file with your script ID.
+  </Step>
+  
+  <Step title="Configure Script ID">
+    Edit `.clasp.json` and verify the script ID:
+    ```json
+    {
+      "scriptId": "YOUR_SCRIPT_ID_HERE",
+      "rootDir": "."
+    }
+    ```
+  </Step>
+  
+  <Step title="Push Code">
+    Deploy all files to Google Apps Script:
+    ```bash
+    clasp push
+    ```
+    
+    Use `clasp push --watch` to enable auto-deployment on file changes.
+  </Step>
+  
+  <Step title="Deploy Web App">
+    Create a deployment:
+    ```bash
+    clasp deploy --description "Initial deployment"
+    ```
+  </Step>
+</Steps>
+
+### Method 2: Manual Upload
+
+<Steps>
+  <Step title="Create New Project">
+    1. Go to [script.google.com](https://script.google.com)
+    2. Click "New Project"
+    3. Rename to "SGD-MCS Backend"
+  </Step>
+  
+  <Step title="Configure Manifest">
+    1. Click the gear icon (Project Settings)
+    2. Check "Show appsscript.json manifest file"
+    3. Edit `appsscript.json` with the configuration above
+  </Step>
+  
+  <Step title="Create Files">
+    Create each file from the `Backend/` directory structure:
+    
+    - `config.js`
+    - `core/Main.js`
+    - `core/EntityManager.js`
+    - `core/controller.js`
+    - `services/DataService.js`
+    - `services/DriveManager.js`
+    - `services/DriveFileManager.js`
+    - `services/SearchService.js`
+    - `utils/Utils.js`
+    - `utils/DataUtils.js`
+  </Step>
+  
+  <Step title="Copy Code">
+    Copy the code from each source file into the corresponding Apps Script file.
+  </Step>
+  
+  <Step title="Save and Deploy">
+    1. Save all files (Ctrl+S)
+    2. Click "Deploy" → "New deployment"
+    3. Select type: "Web app"
+    4. Set access as needed
+    5. Click "Deploy"
+  </Step>
+</Steps>
+
+<Warning>
+  Manual deployment is tedious for updates. Use clasp for production workflows.
+</Warning>
+
+## File Structure
+
+The backend follows a modular architecture:
+
+```
+Backend/
+├── appsscript.json          # Project manifest
+├── core/
+│   ├── config.js            # Global configuration
+│   ├── Main.js              # Entry points (doGet, API proxies)
+│   ├── EntityManager.js     # CRUD operations
+│   └── controller.js        # Dashboard statistics
+├── services/
+│   ├── DataService.js       # Data retrieval services
+│   ├── DriveManager.js      # Drive folder management
+│   ├── DriveFileManager.js  # File operations
+│   └── SearchService.js     # Universal search
+└── utils/
+    ├── Utils.js             # ID generation, normalization, audit logging
+    └── DataUtils.js         # Sheet data conversion utilities
+```
+
+## Key Functions
+
+### Entry Point: doGet()
+
+Serves the web application:
+
+```javascript
+function doGet() {
+    return HtmlService.createHtmlOutputFromFile('web/index')
+        .setTitle('SGD-MCS v3.0')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+```
+
+**Location:** Backend/core/Main.js:6-11
+
+### API Proxies
+
+Apps Script requires global function declarations for client-side calls via `google.script.run`. The `Main.js` file provides these proxies:
+
+```javascript
+// Dashboard
+function getStats() { return getDashboardStats(); }
+
+// Entity Lists
+function getStudents() { return listStudents(); }
+function getTeachers() { return listTeachers(); }
+// ... etc
+```
+
+**Location:** Backend/core/Main.js:22-42
+
+## OAuth Scopes Explained
+
+<AccordionGroup>
+  <Accordion title="spreadsheets - Full Sheets Access">
+    **Scope:** `https://www.googleapis.com/auth/spreadsheets`
+    
+    Required for:
+    - Reading student, faculty, thesis, and event data
+    - Writing new records and updates
+    - Auto-incrementing ID counters in Config sheet
+    - Audit logging to Historial_Documentos
+  </Accordion>
+  
+  <Accordion title="drive - Drive File Management">
+    **Scope:** `https://www.googleapis.com/auth/drive`
+    
+    Required for:
+    - Creating entity folders (Students, Thesis, etc.)
+    - Uploading documents and certificates
+    - Organizing files into structured directories
+    - Moving files to trash on deletion
+  </Accordion>
+  
+  <Accordion title="script.external_request - HTTP Requests">
+    **Scope:** `https://www.googleapis.com/auth/script.external_request`
+    
+    Required for:
+    - Making external API calls (if needed)
+    - Webhook integrations
+    - Future extensibility
+  </Accordion>
+</AccordionGroup>
+
+## Testing Deployment
+
+<Steps>
+  <Step title="Test Configuration">
+    In the Apps Script editor, run `getAppConfig()`:
+    ```javascript
+    Logger.log(getAppConfig());
+    ```
+    
+    Verify it returns:
+    ```json
+    {
+      "appVersion": "3.0.0",
+      "environment": "Production",
+      "sheets": {...},
+      "colors": {...}
+    }
+    ```
+  </Step>
+  
+  <Step title="Test Database Connection">
+    Run `getDB()` and verify it connects:
+    ```javascript
+    var ss = getDB();
+    Logger.log(ss.getName());
+    ```
+  </Step>
+  
+  <Step title="Test CRUD Operations">
+    Test creating a student record:
+    ```javascript
+    var result = createItem('estudiante', {
+      Nombre1: 'Test',
+      Apellido1: 'User',
+      Email: 'test@example.com'
+    });
+    Logger.log(result);
+    ```
+  </Step>
+  
+  <Step title="Test Web App">
+    Deploy as web app and visit the deployment URL to ensure the frontend loads.
+  </Step>
+</Steps>
+
+## Updating the Script
+
+### Using clasp
+
+```bash
+# Pull latest code from Apps Script
+clasp pull
+
+# Make changes locally
+# ...
+
+# Push updates
+clasp push
+
+# Create new version
+clasp deploy --description "Updated entity manager"
+```
+
+### Manual Update
+
+1. Open the script at [script.google.com](https://script.google.com)
+2. Edit the relevant files
+3. Save changes (Ctrl+S)
+4. Create new deployment or update existing one
+
+<Warning>
+  Always test changes in a development environment before deploying to production.
+</Warning>
+
+## Permissions and Security
+
+<Card title="Service Account" icon="user-lock">
+  The script runs with the permissions of the deploying user. Ensure this account has:
+  - Owner or Editor access to the Google Sheets database
+  - Access to the Drive folder specified in `ROOT_FOLDER_ID`
+  - Appropriate organizational permissions
+</Card>
+
+<Card title="Public Access Warning" icon="triangle-exclamation">
+  The default configuration allows **anonymous public access**. For production:
+  
+  1. Change `webapp.access` to `"DOMAIN"` (organization only)
+  2. Or change to `"ANYONE"` (requires Google login)
+  3. Implement additional authentication in `doGet()` if needed
+</Card>
+
+## Monitoring and Logs
+
+### View Execution Logs
+
+1. Open your Apps Script project
+2. Click "Executions" in the left sidebar
+3. View recent runs, errors, and execution times
+
+### Cloud Logging
+
+With `exceptionLogging: "STACKDRIVER"`, errors are logged to Google Cloud:
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Select your Apps Script project
+3. Navigate to "Logging" → "Logs Explorer"
+4. Filter by severity and timestamp
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Script Authorization Required">
+    **Error:** "Authorization required to perform that action"
+    
+    **Solution:** Run any function manually in the editor to trigger OAuth consent flow.
+  </Accordion>
+  
+  <Accordion title="Deployment Failed">
+    **Error:** "Unable to deploy"
+    
+    **Solution:** Check that all file syntax is valid. Run "Debug" → "Check for errors" in the editor.
+  </Accordion>
+  
+  <Accordion title="Scope Mismatch">
+    **Error:** "Access not granted"
+    
+    **Solution:** Verify all required scopes are in `appsscript.json`. Re-authorize the script.
+  </Accordion>
+  
+  <Accordion title="Functions Not Found">
+    **Error:** "Function not found" when calling from frontend
+    
+    **Solution:** Ensure functions are declared in global scope (Main.js proxies).
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Configure database connection and settings
+  </Card>
+  
+  <Card title="Database Structure" icon="database" href="/admin/database-structure">
+    Understand the Google Sheets schema
+  </Card>
+  
+  <Card title="Permissions" icon="lock" href="/admin/permissions">
+    Set up user roles and access control
+  </Card>
+</CardGroup>

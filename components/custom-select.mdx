@@ -1,0 +1,280 @@
+---
+title: CustomSelect
+description: A custom dropdown select component with enhanced styling and validation
+---
+
+## Overview
+
+The `CustomSelect` component is a fully-featured dropdown select input that replaces native HTML select elements with a custom-styled alternative. It includes support for icons, validation states, disabled states, and dark mode.
+
+**Location**: `~/workspace/source/Fronted/src/components/common/CustomSelect.jsx:4`
+
+## Features
+
+- Custom dropdown UI with smooth animations
+- Optional icon support for visual enhancement
+- Error state styling with validation feedback
+- Disabled state handling
+- Dark mode compatible
+- Click-outside to close functionality
+- Clear selection option
+- Keyboard-friendly interface
+
+## Props
+
+<ParamField path="name" type="string" required>
+  The name attribute for the select input, used when handling form submissions
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  The currently selected value from the options array
+</ParamField>
+
+<ParamField path="onChange" type="function" required>
+  Callback function triggered when selection changes. Receives an event object with `target.name` and `target.value`
+  
+  ```jsx
+  onChange={(e) => console.log(e.target.name, e.target.value)}
+  ```
+</ParamField>
+
+<ParamField path="options" type="array" required>
+  Array of string options to display in the dropdown
+  
+  ```jsx
+  options={["Opción 1", "Opción 2", "Opción 3"]}
+  ```
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, disables user interaction with the select component
+</ParamField>
+
+<ParamField path="error" type="boolean" default="false">
+  When true, applies error styling (red border and text color)
+</ParamField>
+
+<ParamField path="icon" type="React.Component">
+  A Lucide React icon component to display on the left side of the select button
+  
+  ```jsx
+  import { User } from 'lucide-react';
+  icon={User}
+  ```
+</ParamField>
+
+<ParamField path="placeholder" type="string" default="Seleccione...">
+  Placeholder text shown when no value is selected
+</ParamField>
+
+## Import
+
+```jsx
+import CustomSelect from './components/common/CustomSelect';
+import { Building2, User } from 'lucide-react';
+```
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Basic Usage">
+    ```jsx
+    import React, { useState } from 'react';
+    import CustomSelect from './components/common/CustomSelect';
+
+    function MyForm() {
+      const [formData, setFormData] = useState({ category: '' });
+
+      const handleChange = (e) => {
+        setFormData(prev => ({
+          ...prev,
+          [e.target.name]: e.target.value
+        }));
+      };
+
+      return (
+        <CustomSelect
+          name="category"
+          value={formData.category}
+          onChange={handleChange}
+          options={["Estudiante", "Docente", "Administrativo"]}
+          placeholder="Seleccione una categoría"
+        />
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="With Icon">
+    ```jsx
+    import { User } from 'lucide-react';
+    import CustomSelect from './components/common/CustomSelect';
+
+    function UserTypeSelect({ value, onChange }) {
+      return (
+        <CustomSelect
+          name="userType"
+          value={value}
+          onChange={onChange}
+          options={["Admin", "Profesor", "Estudiante"]}
+          icon={User}
+          placeholder="Tipo de usuario"
+        />
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="With Validation">
+    ```jsx
+    import React, { useState } from 'react';
+    import { AlertCircle } from 'lucide-react';
+    import CustomSelect from './components/common/CustomSelect';
+
+    function ValidatedSelect() {
+      const [program, setProgram] = useState('');
+      const [submitted, setSubmitted] = useState(false);
+      const hasError = submitted && !program;
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        setSubmitted(true);
+        if (program) {
+          console.log('Selected:', program);
+        }
+      };
+
+      return (
+        <form onSubmit={handleSubmit}>
+          <CustomSelect
+            name="program"
+            value={program}
+            onChange={(e) => setProgram(e.target.value)}
+            options={[
+              "Ingeniería de Sistemas",
+              "Ingeniería Industrial",
+              "Administración de Empresas"
+            ]}
+            error={hasError}
+            placeholder="Seleccione un programa"
+          />
+          {hasError && (
+            <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
+              <AlertCircle size={12} />
+              Este campo es requerido
+            </p>
+          )}
+          <button type="submit">Enviar</button>
+        </form>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Disabled State">
+    ```jsx
+    import CustomSelect from './components/common/CustomSelect';
+
+    function DisabledExample() {
+      return (
+        <CustomSelect
+          name="locked"
+          value="No disponible"
+          onChange={() => {}}
+          options={["No disponible"]}
+          disabled={true}
+          placeholder="Bloqueado"
+        />
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Visual Behavior
+
+The CustomSelect component renders as:
+
+1. **Closed State**: A button displaying the current value or placeholder, with a chevron icon
+2. **Open State**: Expands to show a dropdown list with all options
+3. **Selected Option**: Highlighted with a check icon and colored background
+4. **Clear Option**: First item in the list allows clearing the selection
+
+## Styling States
+
+### Default State
+- Semi-transparent white background
+- Subtle border
+- Dark mode compatible colors
+
+### Open State
+- Ring border with indigo accent
+- Elevated dropdown with shadow
+- Rotated chevron icon
+
+### Error State  
+- Red border color
+- Red text color for icon and text
+- Visual feedback for validation failures
+
+### Disabled State
+- Reduced opacity (50%)
+- Cursor not-allowed
+- Non-interactive
+
+## Implementation Details
+
+### Click Outside Detection
+The component uses a ref and event listener to detect clicks outside the dropdown and automatically close it:
+
+```jsx
+// From CustomSelect.jsx:8-16
+useEffect(() => {
+    const handleClickOutside = (event) => {
+        if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+            setIsOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
+```
+
+### Event Handler Pattern
+The onChange event mimics native select behavior by passing an event object:
+
+```jsx
+// From CustomSelect.jsx:18-21
+const handleSelect = (opt) => {
+    onChange({ target: { name, value: opt } });
+    setIsOpen(false);
+};
+```
+
+## Accessibility
+
+- Semantic button element for the trigger
+- Keyboard navigation support (click to open)
+- Focus management
+- Disabled state properly communicated
+- ARIA-compatible structure
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use with Form State Management">
+    Always integrate CustomSelect with your form state management solution (useState, React Hook Form, Formik, etc.) to ensure controlled component behavior.
+  </Accordion>
+  
+  <Accordion title="Provide Clear Options">
+    Keep option text concise and descriptive. Long text will be truncated with ellipsis.
+  </Accordion>
+  
+  <Accordion title="Combine with Validation">
+    Use the error prop in combination with your validation logic to provide visual feedback to users.
+  </Accordion>
+  
+  <Accordion title="Use Icons Meaningfully">
+    Only add icons when they enhance understanding of the field's purpose (e.g., User icon for user type selection).
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,320 @@
+---
+title: FolderExplorer
+description: Google Drive folder integration component with sync and upload capabilities
+---
+
+## Overview
+
+The `FolderExplorer` component manages Google Drive folder integration for entities in the SGD-MCS system. It displays folder status, provides sync/regeneration capabilities, and integrates file upload functionality.
+
+**Location**: `~/workspace/source/Fronted/src/components/common/FolderExplorer.jsx:10`
+
+## Features
+
+- Display linked Google Drive folder with status badge
+- Sync/regenerate Drive folder for entities
+- Direct link to open folder in Google Drive
+- Integrated file upload to entity folder
+- Visual status indicators (synced/pending)
+- Automatic refresh after folder creation
+- Error handling with user-friendly messages
+
+## Props
+
+<ParamField path="folderId" type="string">
+  The Google Drive folder ID associated with the entity
+</ParamField>
+
+<ParamField path="folderUrl" type="string">
+  The full URL to the Google Drive folder
+</ParamField>
+
+<ParamField path="entityType" type="string" required>
+  The type of entity (e.g., "student", "professor", "thesis")
+</ParamField>
+
+<ParamField path="entityId" type="string" required>
+  The unique identifier for the entity
+</ParamField>
+
+<ParamField path="entityData" type="object">
+  Entity data object containing entity details
+  
+  ```jsx
+  entityData={{
+    Nombre1: "Juan",
+    Apellido1: "Pérez"
+  }}
+  ```
+</ParamField>
+
+<ParamField path="onFolderCreated" type="function">
+  Callback function invoked when a folder is successfully created or synced. Receives `folderId` and `folderUrl`
+  
+  ```jsx
+  onFolderCreated={(id, url) => {
+    console.log('Folder created:', id, url);
+  }}
+  ```
+</ParamField>
+
+## Import
+
+```jsx
+import FolderExplorer from './components/common/FolderExplorer';
+```
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Linked Folder">
+    ```jsx
+    import FolderExplorer from './components/common/FolderExplorer';
+
+    function StudentProfile({ student }) {
+      const handleFolderUpdate = (id, url) => {
+        console.log('Folder updated:', id, url);
+        // Update parent component state
+      };
+
+      return (
+        <div>
+          <h2>{student.name}</h2>
+          
+          <FolderExplorer
+            folderId={student.driveFolderId}
+            folderUrl={student.driveFolderUrl}
+            entityType="student"
+            entityId={student.id}
+            entityData={{
+              Nombre1: student.firstName,
+              Apellido1: student.lastName
+            }}
+            onFolderCreated={handleFolderUpdate}
+          />
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Unlinked Folder">
+    ```jsx
+    import FolderExplorer from './components/common/FolderExplorer';
+
+    function NewEntity({ entityId, entityType }) {
+      const [folderData, setFolderData] = useState({
+        id: null,
+        url: null
+      });
+
+      const handleFolderCreated = (id, url) => {
+        setFolderData({ id, url });
+        // Optionally save to backend
+      };
+
+      return (
+        <FolderExplorer
+          folderId={folderData.id}
+          folderUrl={folderData.url}
+          entityType={entityType}
+          entityId={entityId}
+          onFolderCreated={handleFolderCreated}
+        />
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="With Custom Entity Data">
+    ```jsx
+    import FolderExplorer from './components/common/FolderExplorer';
+
+    function ThesisFolder({ thesis }) {
+      return (
+        <FolderExplorer
+          folderId={thesis.folder_id}
+          folderUrl={thesis.folder_url}
+          entityType="thesis"
+          entityId={thesis.id}
+          entityData={{
+            Nombre1: thesis.title,
+            Apellido1: thesis.author
+          }}
+          onFolderCreated={(id, url) => {
+            // Update thesis record with new folder info
+            updateThesis(thesis.id, { folder_id: id, folder_url: url });
+          }}
+        />
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Visual States
+
+### Synced Folder (folderId && folderUrl present)
+
+When a folder is linked, the component displays:
+
+- Google Drive icon
+- "Carpeta en Google Drive" heading
+- Green "SINCRONIZADO" status badge
+- Folder URL preview (truncated)
+- Three action buttons:
+  - **SUBIR ARCHIVO**: Opens file uploader modal
+  - **ABRIR**: Opens folder in new tab
+  - **Sync icon**: Re-synchronizes the folder
+
+### Pending/Unlinked Folder (no folderId or folderUrl)
+
+When no folder is linked, the component displays:
+
+- Warning icon (AlertCircle)
+- "Carpeta No Vinculada" heading
+- Amber "PENDIENTE" status badge
+- Explanation message
+- **CREAR CARPETA** button to initiate sync
+
+## API Integration
+
+The component uses the `api.drive.sync()` method to create or sync folders:
+
+```jsx
+// From FolderExplorer.jsx:29
+const result = await api.drive.sync(entityType, entityId);
+```
+
+Expected API response:
+```json
+{
+  "success": true,
+  "id": "1abc123def456",
+  "url": "https://drive.google.com/drive/folders/1abc123def456"
+}
+```
+
+## File Upload Integration
+
+The component integrates with the `FileUploader` component when the upload button is clicked:
+
+```jsx
+// From FolderExplorer.jsx:114-123
+{showUploader && (
+    <FileUploader
+        folderId={folderId}
+        entityId={entityId}
+        entityType={entityType}
+        entityName={entityData ? `${entityData.Nombre1 || ''} ${entityData.Apellido1 || ''}`.trim() : ''}
+        onClose={() => setShowUploader(false)}
+        onUploadComplete={handleUploadComplete}
+    />
+)}
+```
+
+## Event Flow
+
+### Folder Creation/Sync Flow
+
+1. User clicks "CREAR CARPETA" or sync icon
+2. Confirmation dialog appears (using SweetAlert2)
+3. If confirmed, API call to `api.drive.sync()` is made
+4. Loading state is shown with animated spinner
+5. On success:
+   - Success toast notification
+   - `onFolderCreated` callback invoked
+   - Page reloads after 1.5s
+6. On error:
+   - Error toast notification
+   - Loading state clears
+
+### File Upload Flow
+
+1. User clicks "SUBIR ARCHIVO" button
+2. FileUploader modal opens
+3. User uploads files to the folder
+4. On completion:
+   - Success toast notification
+   - Modal closes
+   - `handleUploadComplete` callback invoked
+
+## Styling Features
+
+### Animations
+- Fade-in and slide-in animations on mount
+- Spin animation on sync button during loading
+- Smooth hover transitions on buttons
+- Scale and shadow effects on button hover
+
+### Responsive Design
+- Flexbox layout that adapts to mobile (flex-col) and desktop (flex-row)
+- Truncated URLs with max-width constraints
+- Full-width buttons on mobile, auto-width on desktop
+
+### Dark Mode Support
+- Full dark mode theming using Tailwind's `dark:` variants
+- Appropriate contrast ratios for all states
+- Consistent color scheme across light and dark themes
+
+## Error Handling
+
+<AccordionGroup>
+  <Accordion title="Missing Entity Information">
+    If `entityType` or `entityId` is not provided when attempting to regenerate a folder, an error toast is displayed:
+    
+    ```jsx
+    toast.error('Error', 'No se puede regenerar la carpeta sin tipo y ID de entidad');
+    ```
+  </Accordion>
+  
+  <Accordion title="API Failures">
+    Network errors or API failures are caught and displayed with user-friendly messages:
+    
+    ```jsx
+    toast.error('Error', 'Falló la conexión con Drive');
+    ```
+  </Accordion>
+  
+  <Accordion title="Sync Failures">
+    If the API returns a non-success response, the error message from the API is displayed:
+    
+    ```jsx
+    toast.error('Error', result.message || 'No se pudo sincronizar la carpeta');
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Dependencies
+
+- **lucide-react**: Icons (Folder, ExternalLink, RefreshCw, etc.)
+- **api.drive.sync()**: Drive API service
+- **toast**: SweetAlert2 utility for notifications
+- **FileUploader**: File upload component
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Provide Entity Context">
+    Ensure `entityType` and `entityId` are always provided to enable proper folder management.
+  </Accordion>
+  
+  <Accordion title="Handle Folder Creation Callback">
+    Implement `onFolderCreated` to update parent component state and persist folder information to your backend.
+  </Accordion>
+  
+  <Accordion title="Consider Page Reload">
+    The component triggers a page reload after folder creation. Consider if this is necessary for your use case or if state updates are sufficient.
+  </Accordion>
+  
+  <Accordion title="Test Drive API Integration">
+    Ensure the Google Drive API is properly configured and the `api.drive.sync()` endpoint is functional before deploying.
+  </Accordion>
+</AccordionGroup>
+
+## Security Considerations
+
+- The component assumes proper authentication is handled at the API level
+- Folder URLs are displayed directly - ensure they are properly validated
+- Entity data should be sanitized before passing to the component
+- Consider implementing role-based access control for sync operations

@@ -1,0 +1,310 @@
+---
+title: Teacher Management
+description: Faculty and academic staff administration system
+icon: chalkboard-user
+---
+
+<Note>
+Manage faculty members, track employment status, and monitor teaching assignments.
+</Note>
+
+## Overview
+
+The Teacher Management module handles all faculty-related information including personal data, employment type, and academic contributions.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Faculty Directory" icon="address-book">
+    Complete roster of all teaching staff with contact information
+  </Card>
+  <Card title="Employment Tracking" icon="briefcase">
+    Track employment type (Planta, Catedrático) and active status
+  </Card>
+  <Card title="Bulk Operations" icon="layer-group">
+    Edit or delete multiple teacher records simultaneously
+  </Card>
+  <Card title="Integration" icon="link">
+    Link teachers to thesis projects, courses, and events
+  </Card>
+</CardGroup>
+
+## Teacher List
+
+### Table Columns
+
+| Column | Description | Example |
+|--------|-------------|----------|
+| **Código** | Teacher ID | DOC-2024-01-001 |
+| **Docente** | Full name and email | Dr. Juan Pérez<br/>juan.perez@uni.edu |
+| **Documento** | Document type and number | CC<br/>12345678 |
+| **Vinculación** | Employment type | Planta, Catedrático |
+| **Estado** | Active or Inactive status | 🟢 Activo<br/>🔴 Inactivo |
+| **Acciones** | View, Edit, Delete + Drive folder | |
+
+  alt="Teacher list with employment badges"
+/>
+
+### Filters
+
+<Tabs>
+  <Tab title="Status">
+    - Todos (All)
+    - Activo (Active)
+    - Inactivo (Inactive)
+  </Tab>
+  <Tab title="Employment Type">
+    - Todos (All)
+    - Planta (Tenured/Full-time)
+    - Catedrático (Adjunct)
+  </Tab>
+</Tabs>
+
+```jsx
+const [filterStatus, setFilterStatus] = useState('Todos');
+const [filterType, setFilterType] = useState('Todos');
+```
+
+## Teacher Form
+
+### Personal Information
+
+<Steps>
+  <Step title="Basic Data">
+    - First and last names (required)
+    - Document type and number
+    - Email (required)
+    - Phone numbers
+  </Step>
+  <Step title="Employment Details">
+    - Employment type: Planta or Catedrático
+    - Active status (Sí/No)
+    - Start date
+    - Department or unit
+  </Step>
+  <Step title="Academic Info">
+    - Highest degree
+    - Specialization areas
+    - Research lines
+    - ORCID or researcher ID
+  </Step>
+</Steps>
+
+### Form Validation
+
+Required fields:
+
+- ✅ Nombre1 (First name)
+- ✅ Apellido1 (First last name)
+- ✅ Cedula (Document number)
+- ✅ Email
+
+<Warning>
+The system prevents duplicate document numbers. If a teacher with the same ID exists, you'll see an error message.
+</Warning>
+
+## Employment Types
+
+### Planta (Full-time/Tenured)
+
+Faculty with permanent contracts:
+
+- Full-time commitment
+- Benefits and tenure eligibility
+- Administrative and research duties
+- Higher priority in thesis advising
+
+### Catedrático (Adjunct)
+
+Contract-based instructors:
+
+- Part-time or hourly contracts
+- Specific course assignments
+- External professionals bringing industry experience
+
+<Tip>
+Use the Vinculación filter to quickly find available advisors based on employment type.
+</Tip>
+
+## Status Indicators
+
+Visual badges show teacher status:
+
+```jsx
+const getStatusBadge = (status) => {
+  const styles = {
+    'Activo': 'bg-emerald-500/10 text-emerald-700 border-emerald-200',
+    'Inactivo': 'bg-red-500/10 text-red-700 border-red-200'
+  };
+  return <span className={styles[status]}>● {status}</span>;
+};
+```
+
+## Bulk Edit Modal
+
+Select multiple teachers and edit shared fields:
+
+  alt="Bulk edit modal showing field options"
+/>
+
+Editable fields in bulk mode:
+
+- Estado (Status): Change multiple teachers to active/inactive
+- Tipo_Vinculacion: Update employment type
+- Department: Reassign to different unit
+
+<Steps>
+  <Step title="Select Teachers">
+    Check boxes next to teacher names
+  </Step>
+  <Step title="Open Bulk Editor">
+    Click "Editar" in the floating dock
+  </Step>
+  <Step title="Choose Fields">
+    Select which fields to modify
+  </Step>
+  <Step title="Apply Changes">
+    Changes are applied to all selected records
+  </Step>
+</Steps>
+
+## Import Teachers
+
+Import faculty data from Excel:
+
+### Template Columns
+
+```
+Nombre1, Nombre2, Apellido1, Apellido2, Tipo_Documento, Cedula,
+Email, Telefono, Celular, Tipo_Vinculacion, Activo
+```
+
+### Import Process
+
+1. Download template from **Teachers → Import**
+2. Fill in teacher data (minimum: Name, Document, Email)
+3. Upload Excel file
+4. Review detected records
+5. Click "Importar" to process
+
+<Note>
+The system auto-generates teacher IDs in the format: `DOC-YYYY-MM-NNN`
+</Note>
+
+## Export Options
+
+Export teacher data:
+
+<CardGroup cols={2}>
+  <Card title="Export Selection" icon="check-square">
+    Export only selected teachers
+  </Card>
+  <Card title="Export Filtered" icon="filter">
+    Export all teachers matching current filters
+  </Card>
+</CardGroup>
+
+Available formats:
+
+- Excel (.xlsx) with formatting
+- CSV for data processing
+
+## Drive Integration
+
+Each teacher can have a dedicated Drive folder:
+
+```
+Docentes/
+  └── [Teacher Name] - [ID]/
+      ├── CV/
+      ├── Publicaciones/
+      └── Documentos Administrativos/
+```
+
+### Creating Folders
+
+- **Automatic**: Enable during teacher creation
+- **Manual**: Click "GENERAR CARPETA" in teacher form
+
+### Accessing Folders
+
+- Click the folder icon in the Actions column
+- Open from teacher detail view
+- Access via Documents tab
+
+## Search Functionality
+
+The search bar supports:
+
+- Name (any part)
+- Document number
+- Email address
+
+Results update in real-time as you type.
+
+```jsx
+const filteredTeachers = teachers.filter(t => {
+  const searchLower = searchTerm.toLowerCase();
+  return t.nombre.toLowerCase().includes(searchLower) ||
+         t.numDoc.toString().includes(searchLower);
+});
+```
+
+## Pagination
+
+Control how many teachers display per page:
+
+- 10 (default)
+- 20
+- 50
+- 100
+- Todos (All)
+
+Navigation buttons:
+
+- ◀️ Previous page
+- **Page X / Y** indicator
+- ▶️ Next page
+
+## Action Buttons
+
+Hover over a teacher row to reveal action buttons:
+
+| Icon | Action | Description |
+|------|--------|-------------|
+| 📁 | Open Folder | Access Drive folder (if exists) |
+| 👁️ | View | Read-only detail view |
+| ✏️ | Edit | Modify teacher information |
+| 🗑️ | Delete | Remove teacher record (with confirmation) |
+
+## Notifications
+
+The system shows notifications for:
+
+- ✅ Teacher created successfully
+- ✅ Changes saved
+- ⚠️ Validation errors
+- ❌ Deletion errors or conflicts
+
+## Source Code Reference
+
+Key files:
+
+- Teacher list: `Fronted/src/pages/teachers/TeacherList.jsx:16`
+- Teacher form: `Fronted/src/pages/teachers/TeacherForm.jsx`
+- Import page: `Fronted/src/pages/teachers/TeacherImport.jsx`
+- API service: `api.teachers` namespace
+
+## Related Features
+
+<CardGroup cols={3}>
+  <Card title="Thesis Tracking" icon="book" href="/features/thesis-tracking">
+    Assign teachers as thesis advisors
+  </Card>
+  <Card title="Event Management" icon="calendar" href="/features/event-management">
+    Track teacher participation in events
+  </Card>
+  <Card title="Dashboard" icon="chart-line" href="/features/dashboard">
+    View faculty analytics
+  </Card>
+</CardGroup>

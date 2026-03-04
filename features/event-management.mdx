@@ -1,0 +1,430 @@
+---
+title: Event Management
+description: Academic event organization and participation tracking
+icon: calendar-days
+---
+
+<Note>
+Organize and track academic events including seminars, conferences, workshops, and symposiums with participant management.
+</Note>
+
+## Overview
+
+The Event Management module helps you plan, execute, and analyze academic activities throughout the Master's program lifecycle.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Event Types" icon="list">
+    Support for Seminarios, Congresos, Simposios, Talleres, and Conferencias
+  </Card>
+  <Card title="Modality Options" icon="video">
+    Track Presencial, Virtual, or Híbrida events
+  </Card>
+  <Card title="Scope Tracking" icon="globe">
+    Classify as Local, Nacional, or Internacional
+  </Card>
+  <Card title="Participation Management" icon="users">
+    Register and track attendees, speakers, and organizers
+  </Card>
+</CardGroup>
+
+## Event List
+
+### Card Display
+
+Events are shown in a modern card layout:
+
+  alt="Event cards showing type, modality, and details"
+/>
+
+Each card contains:
+
+- **Top Badge**: Event type and scope (e.g., "SEMINARIO • Nacional")
+- **Modality Badge**: Presencial, Virtual, or Híbrida (color-coded)
+- **Event Title**: Bold, uppercase, truncated to 2 lines
+- **Key Details**:
+  - 📍 Location/venue
+  - ⏱️ Duration in hours
+  - 📅 Start date
+- **Action Buttons**: Folder, View, Edit, Delete (hover to reveal)
+
+### Color-Coded Modality
+
+```jsx
+const modalityStyles = {
+  'Presencial': 'bg-green-500/10 text-green-700 border-green-200',
+  'Virtual': 'bg-blue-500/10 text-blue-700 border-blue-200',
+  'Híbrida': 'bg-purple-500/10 text-purple-700 border-purple-200'
+};
+```
+
+## Filters & Search
+
+### Filter Options
+
+<Tabs>
+  <Tab title="Type">
+    - Todos (All)
+    - Seminario
+    - Congreso
+    - Simposio
+    - Taller
+    - Conferencia
+  </Tab>
+  <Tab title="Scope">
+    - Todos (All)
+    - Local
+    - Nacional
+    - Internacional
+  </Tab>
+  <Tab title="Modality">
+    - Todos (All)
+    - Presencial
+    - Virtual
+    - Híbrida
+  </Tab>
+</Tabs>
+
+  alt="Event filter panel with dropdowns"
+/>
+
+### Search Functionality
+
+Search events by:
+
+- Event name (partial match)
+- Location/venue
+- Speaker names
+
+Results update in real-time as you type.
+
+```jsx
+const filteredEvents = events.filter(ev => {
+  return (
+    ev.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ev.lugar.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+});
+```
+
+## Event Form
+
+### Basic Information
+
+<Steps>
+  <Step title="Event Name">
+    Descriptive title (required)
+  </Step>
+  <Step title="Event Type">
+    Select from dropdown: Seminario, Congreso, etc.
+  </Step>
+  <Step title="Scope & Modality">
+    Choose reach (Local/Nacional/Internacional) and format
+  </Step>
+  <Step title="Location">
+    Physical venue or virtual platform name
+  </Step>
+</Steps>
+
+### Required Fields
+
+- ✅ Nombre_Evento (Event name)
+- ✅ Tipo_Evento (Event type)
+- ✅ Fecha_Inicio (Start date)
+- ✅ Lugar (Location)
+
+### Date & Time
+
+<CardGroup cols={2}>
+  <Card title="Start Date" icon="calendar-plus">
+    Event begins (required)
+  </Card>
+  <Card title="End Date" icon="calendar-check">
+    Event ends (optional for single-day events)
+  </Card>
+  <Card title="Registration Deadline" icon="clock">
+    Last day to register participants
+  </Card>
+  <Card title="Duration" icon="hourglass">
+    Total hours (Intensidad_Horaria)
+  </Card>
+</CardGroup>
+
+```jsx
+// Date format example
+const eventData = {
+  Fecha_Inicio: '2024-03-15',
+  Fecha_Fin: '2024-03-17',
+  Intensidad_Horaria: 24, // hours
+  Fecha_Limite_Inscripcion: '2024-03-01'
+};
+```
+
+### Additional Details
+
+#### Organizers & Sponsors
+
+- **Organizador_Principal**: Lead organizing entity
+- **Co-Organizadores**: Supporting organizations
+- **Patrocinadores**: Sponsors and funding sources
+
+#### Description & Objectives
+
+- **Descripción**: Event overview (500-1000 words)
+- **Objetivos**: Learning objectives (bullet points)
+- **Público_Objetivo**: Target audience description
+- **Requisitos**: Prerequisites or requirements
+
+#### Registration & Costs
+
+- **Costo_Inscripción**: Registration fee
+- **Cupos_Disponibles**: Available seats/slots
+- **Link_Inscripción**: Registration URL
+
+<Tip>
+For virtual events, include the platform link (Zoom, Teams, etc.) in the Location field.
+</Tip>
+
+## Participation Management
+
+### Participant Types
+
+<CardGroup cols={3}>
+  <Card title="Attendees" icon="users">
+    Students and external participants
+  </Card>
+  <Card title="Speakers" icon="microphone">
+    Presenters and panelists
+  </Card>
+  <Card title="Organizers" icon="clipboard-list">
+    Planning committee members
+  </Card>
+</CardGroup>
+
+### Adding Participants
+
+Navigate to **Events → View → Participations**:
+
+<Steps>
+  <Step title="Select Event">
+    Click "Ver" on any event card
+  </Step>
+  <Step title="Participants Tab">
+    Switch to the "Participaciones" tab
+  </Step>
+  <Step title="Add Participant">
+    Click "Añadir Participante" button
+  </Step>
+  <Step title="Fill Details">
+    - Select participant type
+    - Link to student/teacher record or enter manually
+    - Specify role (if speaker/organizer)
+    - Mark attendance after event
+  </Step>
+</Steps>
+
+### Participation Record
+
+```jsx
+const participationSchema = {
+  ID_Participacion: "PART-2024-03-001",
+  ID_Evento: "EVE-2024-01-005",
+  ID_Participante: "EST-2024-01-010", // or DOC-2024-01-003
+  Tipo_Participante: "Asistente", // or "Ponente", "Organizador"
+  Rol_Especifico: "Panelista", // if Ponente
+  Asistió: true, // marked post-event
+  Certificado_Emitido: true
+};
+```
+
+### Attendance Tracking
+
+After the event:
+
+1. Open event details
+2. Go to Participations tab
+3. Check "Asistió" for attendees who showed up
+4. Generate attendance certificates
+
+  alt="Attendance checklist with checkboxes"
+/>
+
+## Certificates
+
+### Auto-Generation
+
+The system can generate attendance certificates:
+
+- PDF format
+- Includes event details, dates, and hours
+- Signed by program director
+- QR code for verification
+
+### Certificate Template
+
+```jsx
+const certificateData = {
+  participant: "Juan Pérez García",
+  document: "CC 12345678",
+  eventName: "X Seminario Internacional de Investigación",
+  eventDates: "15-17 de Marzo de 2024",
+  hours: 24,
+  role: "Asistente", // or "Ponente", "Organizador"
+  verificationCode: "CERT-2024-03-001"
+};
+```
+
+<Note>
+Certificates are automatically saved to the participant's Drive folder.
+</Note>
+
+## Event Drive Folders
+
+Each event has a dedicated folder:
+
+```
+Eventos/
+  └── [Year]/
+      └── [Event Name] - [Event ID]/
+          ├── Programa/
+          ├── Presentaciones/
+          ├── Material de Apoyo/
+          ├── Asistencia/
+          └── Certificados/
+```
+
+### Uploading Event Materials
+
+<Steps>
+  <Step title="Access Event">
+    Open event in view or edit mode
+  </Step>
+  <Step title="Documents Tab">
+    Click "Documentos" tab
+  </Step>
+  <Step title="Select Folder">
+    Choose appropriate subfolder (Programa, Presentaciones, etc.)
+  </Step>
+  <Step title="Upload Files">
+    Drag and drop or select files to upload
+  </Step>
+</Steps>
+
+## Export & Reporting
+
+### Export Options
+
+Click **Exportar** to download:
+
+<CardGroup cols={2}>
+  <Card title="Event List" icon="file-excel">
+    All events with details in Excel format
+  </Card>
+  <Card title="Participation Report" icon="file-csv">
+    Attendee list with contact info and roles
+  </Card>
+</CardGroup>
+
+### Report Includes
+
+- Event ID, name, type, scope, modality
+- Dates, location, duration
+- Organizer information
+- Participant count by type
+- Attendance rate
+- Certificate issuance status
+
+```jsx
+const exportFields = [
+  'ID_Evento', 'Nombre_Evento', 'Tipo_Evento', 'Alcance',
+  'Modalidad', 'Fecha_Inicio', 'Lugar', 'Intensidad_Horaria',
+  'Total_Participantes', 'Tasa_Asistencia'
+];
+```
+
+## Import Events
+
+### Excel Template
+
+Download template from **Events → Import**:
+
+```
+Nombre_Evento, Tipo_Evento, Alcance, Modalidad, Fecha_Inicio,
+Fecha_Fin, Lugar, Intensidad_Horaria, Organizador_Principal
+```
+
+### Import Process
+
+1. Fill template with event data
+2. Upload Excel file
+3. System validates dates and types
+4. Auto-generates event IDs
+5. Creates Drive folders (optional)
+
+<Warning>
+Ensure dates are in YYYY-MM-DD format for successful import.
+</Warning>
+
+## Calendar Integration
+
+View events in calendar format:
+
+- Monthly view with event markers
+- Color-coded by event type
+- Click date to see events
+- Quick add from calendar
+
+  alt="Calendar view with events marked"
+/>
+
+<Tip>
+Calendar view is accessible from **Dashboard → Eventos Module**.
+</Tip>
+
+## Analytics
+
+The dashboard provides event analytics:
+
+- Events per type (pie chart)
+- Attendance trends (line chart)
+- Participant demographics
+- Scope distribution (local vs. international)
+- Virtual vs. presencial comparison
+
+## Notifications
+
+<CardGroup cols={3}>
+  <Card title="Upcoming Events" icon="bell">
+    7 days before event start
+  </Card>
+  <Card title="Registration Reminder" icon="envelope">
+    3 days before deadline
+  </Card>
+  <Card title="Post-Event Survey" icon="comment">
+    1 day after event ends
+  </Card>
+</CardGroup>
+
+## Source Code Reference
+
+Key files:
+
+- Event list: `Fronted/src/pages/events/EventList.jsx:64`
+- Event form: `Fronted/src/pages/events/EventForm.jsx`
+- Participation manager: `Fronted/src/pages/events/ParticipationManager.jsx`
+- API service: `api.events` namespace
+
+## Related Features
+
+<CardGroup cols={3}>
+  <Card title="Dashboard" icon="chart-line" href="/features/dashboard">
+    View event analytics and trends
+  </Card>
+  <Card title="Student Management" icon="user-graduate" href="/features/student-management">
+    Track student event participation
+  </Card>
+  <Card title="Teacher Management" icon="chalkboard-user" href="/features/teacher-management">
+    Manage faculty as speakers/organizers
+  </Card>
+</CardGroup>

@@ -1,0 +1,165 @@
+---
+title: Welcome to SGD-MCS
+description: A comprehensive document management system for Master's programs
+mode: custom
+---
+
+<div className="relative overflow-hidden bg-gradient-to-br from-[#4285F4] via-[#1565C0] to-[#0d47a1] dark:from-[#1565C0] dark:via-[#0d47a1] dark:to-[#0a2e5c] py-20">
+  <div className="max-w-6xl mx-auto px-6">
+    <div className="flex flex-col lg:flex-row items-center gap-12">
+      <div className="flex-1 text-center lg:text-left">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+          Document Management for Academic Excellence
+        </h1>
+        <p className="text-lg sm:text-xl text-white/90 max-w-2xl mb-8">
+          SGD-MCS streamlines Master's program documentation, from student records and thesis tracking to institutional self-evaluation processes—all integrated with Google Drive.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+          <a 
+            href="/quickstart" 
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-[#4285F4] bg-white rounded-lg hover:bg-gray-100 transition-colors no-underline"
+          >
+            Get Started
+          </a>
+          <a 
+            href="/features/dashboard" 
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-white border-2 border-white/30 bg-white/10 rounded-lg hover:bg-white/20 transition-colors no-underline"
+          >
+            Explore Features
+          </a>
+        </div>
+      </div>
+      <div className="flex-1 hidden lg:block">
+        <div className="relative w-full h-64 flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20"></div>
+          <svg className="relative z-10 w-32 h-32 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Everything you need to manage academic documentation
+    </h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+      A complete solution for Master's programs to track students, faculty, research, and documentation with seamless Google integration.
+    </p>
+  </div>
+
+  <CardGroup cols={3}>
+    <Card title="Student Management" icon="graduation-cap" href="/features/student-management">
+      Manage student records, enrollment cohorts, and academic progress tracking
+    </Card>
+    <Card title="Thesis Tracking" icon="book-open" href="/features/thesis-tracking">
+      Track thesis progress, advisors, committees, and defense schedules
+    </Card>
+    <Card title="Drive Integration" icon="folder" href="/features/document-repository">
+      Automatic folder creation and document organization in Google Drive
+    </Card>
+    <Card title="Analytics Dashboard" icon="chart-line" href="/features/dashboard">
+      Real-time insights into program metrics and self-evaluation data
+    </Card>
+    <Card title="Universal Search" icon="magnifying-glass" href="/guides/search-functionality">
+      Find any document, student, or record instantly across the entire system
+    </Card>
+    <Card title="Bulk Operations" icon="file-import" href="/guides/import-export">
+      Import and export data in bulk using Excel/CSV files
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Quick start
+  </h2>
+  <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+    Get up and running with SGD-MCS in just a few steps
+  </p>
+
+  <Steps>
+    <Step title="Configure Google Apps Script">
+      Set up your Google Sheets database and Google Apps Script backend. Update the `SPREADSHEET_ID` and `ROOT_FOLDER_ID` in `Backend/core/config.js`.
+
+      ```javascript Backend/core/config.js
+      const SPREADSHEET_ID = 'your-spreadsheet-id-here';
+      const ROOT_FOLDER_ID = 'your-drive-folder-id-here';
+      ```
+    </Step>
+
+    <Step title="Deploy the backend">
+      Use Google's `clasp` tool to deploy your backend scripts to Google Apps Script.
+
+      ```bash
+      cd Backend
+      clasp push
+      clasp deploy
+      ```
+    </Step>
+
+    <Step title="Build and deploy frontend">
+      Install dependencies, build the React frontend, and deploy it to Google Apps Script.
+
+      ```bash
+      cd Fronted
+      npm install
+      npm run build
+      ```
+    </Step>
+
+    <Step title="Access your application">
+      Open the web app URL provided by Google Apps Script. You'll be prompted to authenticate with your Google account.
+      
+      <Note>
+        Make sure your Google account has access to the configured spreadsheet and Drive folder.
+      </Note>
+    </Step>
+  </Steps>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Explore by module
+  </h2>
+  <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+    Dive deeper into each core module of the system
+  </p>
+
+  <CardGroup cols={2}>
+    <Card title="Core features" icon="stars" href="/features/dashboard">
+      Learn about the dashboard, entity management, and document repository features
+    </Card>
+    <Card title="User guides" icon="book" href="/guides/authentication">
+      Step-by-step instructions for common workflows and operations
+    </Card>
+    <Card title="Administration" icon="gear" href="/admin/configuration">
+      System configuration, database structure, and permissions management
+    </Card>
+    <Card title="API reference" icon="code" href="/api/overview">
+      Complete API documentation for backend services and frontend components
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="relative overflow-hidden bg-gradient-to-r from-[#4285F4] to-[#1565C0] dark:from-[#1565C0] dark:to-[#0a2e5c] rounded-2xl border border-gray-200 dark:border-[#27272a] p-8 sm:p-12">
+    <div className="relative z-10 text-center">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+        Ready to streamline your program management?
+      </h2>
+      <p className="text-lg text-white/90 mb-6 max-w-2xl mx-auto">
+        Follow our quickstart guide to set up SGD-MCS for your Master's program
+      </p>
+      <a 
+        href="/quickstart" 
+        className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold text-[#4285F4] bg-white rounded-lg hover:bg-gray-100 transition-colors no-underline"
+      >
+        Start Setup Guide
+      </a>
+    </div>
+  </div>
+</div>

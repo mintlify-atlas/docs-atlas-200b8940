@@ -1,0 +1,586 @@
+---
+title: 'Import & Export'
+description: 'Learn how to import and export data in bulk using Excel and PDF formats'
+icon: 'file-spreadsheet'
+---
+
+## Overview
+
+SGD-MCS provides robust import and export functionality for bulk data operations. You can import hundreds of records from Excel files and export filtered data to Excel or PDF formats with custom column selection.
+
+## Import System
+
+### Import Architecture
+
+The import system uses a multi-stage process:
+
+1. **File Upload** - Excel file selection
+2. **Smart Column Mapping** - Automatic field detection
+3. **Validation** - Duplicate checking and data validation
+4. **Preview** - Interactive data review
+5. **Import** - Batch creation with progress tracking
+
+## Importing Data
+
+### Preparing Excel Files
+
+<Steps>
+  <Step title="Download Template">
+    Download the official template to ensure proper formatting:
+
+    ```jsx
+    // Fronted/src/pages/students/StudentImport.jsx:306
+    const downloadTemplate = () => {
+        const ws = XLSX.utils.aoa_to_sheet([ALL_FIELDS]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Estudiantes");
+        XLSX.writeFile(wb, "Plantilla_Estudiantes_Completa.xlsx");
+    };
+    ```
+
+    Two templates are available:
+    - **Simple Template**: Essential fields only
+    - **Complete Template**: All available fields
+  </Step>
+
+  <Step title="Fill in Data">
+    Complete the required fields:
+
+    **Required Fields:**
+    - `Nombre1` (First Name)
+    - `Apellido1` (Last Name)
+    - `Numero_Documento` (ID Number)
+    - `Email`
+    - `Cohorte_Ingreso` (Entry Cohort)
+    - `Fecha_Ingreso` (Entry Date)
+
+    ```javascript
+    // Fronted/src/pages/students/StudentImport.jsx:59
+    const REQUIRED_FIELDS = [
+        "Nombre1", "Apellido1", "Numero_Documento", 
+        "Email", "Cohorte_Ingreso", "Fecha_Ingreso"
+    ];
+    ```
+  </Step>
+
+  <Step title="Format Dates Correctly">
+    Dates can be in multiple formats:
+    - Excel date format (numeric)
+    - DD/MM/YYYY
+    - YYYY-MM-DD
+
+    The system automatically converts dates:
+
+    ```javascript
+    // Fronted/src/pages/students/StudentImport.jsx:23
+    const formatExcelDate = (val) => {
+        if (typeof val === 'number') {
+            const unixTime = Math.round((val - 25569) * 86400 * 1000);
+            const date = new Date(unixTime);
+            return date.toISOString().split('T')[0];
+        }
+        // Handle string dates...
+    };
+    ```
+  </Step>
+</Steps>
+
+### Upload and Validation Process
+
+<Steps>
+  <Step title="Navigate to Import Page">
+    Go to the entity list page and click **Importar**:
+
+    ```jsx
+    <Link to="/students/import">
+        <FileSpreadsheet size={18} /> Importar
+    </Link>
+    ```
+  </Step>
+
+  <Step title="Upload Excel File">
+    Click **Seleccionar Archivo** or drag and drop your Excel file.
+
+    ```javascript
+    // Fronted/src/pages/students/StudentImport.jsx:146
+    const handleFileUpload = (e) => {
+        const f = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const wb = XLSX.read(evt.target.result, { type: 'binary' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(ws);
+            validateData(data);
+        };
+        reader.readAsBinaryString(f);
+    };
+    ```
+  </Step>
+
+  <Step title="Smart Column Mapping">
+    The system automatically maps columns using aliases:
+
+    ```javascript
+    // Fronted/src/pages/students/StudentImport.jsx:175
+    const aliases = {
+        Nombre1: ['nombre', 'nombres', 'primer nombre', 'first name'],
+        Apellido1: ['apellido', 'apellidos', 'primer apellido', 'surname'],
+        Numero_Documento: ['documento', 'cedula', 'identificacion', 'cc'],
+        Email: ['correo', 'mail', 'email', 'e-mail'],
+        Cohorte_Ingreso: ['cohorte', 'ingreso', 'cohorte ingreso']
+    };
+    ```
+
+    This means your Excel columns can have flexible names like:
+    - "Nombre" → maps to `Nombre1`
+    - "Cédula" → maps to `Numero_Documento`
+    - "Correo" → maps to `Email`
+  </Step>
+
+  <Step title="Review Validation Report">
+    The system validates all records and shows a detailed report:
+
+    ```javascript
+    // Fronted/src/pages/students/StudentImport.jsx:84
+    const validateData = (data) => {
+        const report = { total: data.length, valid: 0, invalid: 0, errors: [] };
+        
+        data.forEach((row, idx) => {
+            const rowErrors = [];
+            
+            // Check required fields
+            REQUIRED_FIELDS.forEach(field => {
+                if (!row[field]) rowErrors.push(`${field} es requerido`);
+            });
+            
+            // Email format validation
+            if (row.Email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.Email)) {
+                rowErrors.push("Formato de Email inválido");
+            }
+            
+            // Duplicate checking
+            if (existingStudents.some(s => s.Cedula === row.Numero_Documento)) {
+                rowErrors.push(`Documento duplicado`);
+            }
+            
+            if (rowErrors.length > 0) {
+                report.invalid++;
+                report.errors.push({ row: idx + 1, messages: rowErrors });
+            } else {
+                report.valid++;
+            }
+        });
+    };
+    ```
+
+    **Validation Checks:**
+    - Required fields presence
+    - Email format validation
+    - Duplicate document numbers
+    - Duplicate email addresses
+  </Step>
+
+  <Step title="Preview and Edit Data">
+    Review the data preview table. You can:
+    - Delete invalid rows
+    - Remove unwanted columns
+    - Filter to show only errors
+
+    ```jsx
+    // Fronted/src/pages/students/StudentImport.jsx:483
+    <button onClick={() => setShowOnlyErrors(!showOnlyErrors)}>
+        {showOnlyErrors ? <EyeOff /> : <Filter />}
+        {showOnlyErrors ? 'Mostrando Errores' : 'Filtrar Errores'}
+    </button>
+    ```
+  </Step>
+
+  <Step title="Import Valid Records">
+    Click **Confirmar e Importar** to start the import process:
+
+    ```javascript
+    // Fronted/src/pages/students/StudentImport.jsx:248
+    const handleImport = async () => {
+        const validRows = previewData.filter(r => r._isValid);
+        setImportProgress({ current: 0, total: validRows.length, status: 'importing' });
+        
+        let success = 0;
+        for (let i = 0; i < validRows.length; i++) {
+            try {
+                await api.students.create(record);
+                success++;
+            } catch (e) {
+                console.error('Import error:', e);
+            }
+            setImportProgress(prev => ({ ...prev, current: i + 1 }));
+        }
+        
+        toast.success('Éxito', `Se han importado ${success} estudiantes.`);
+    };
+    ```
+  </Step>
+</Steps>
+
+## Automatic ID Generation
+
+<Note>
+  Student IDs are automatically generated during import using a sequential pattern.
+</Note>
+
+```javascript
+// Fronted/src/pages/students/StudentImport.jsx:87
+const now = new Date();
+const year = now.getFullYear();
+const month = now.getMonth() + 1;
+let nextSeq = findNextSequence('EST', existingStudents, year, month);
+
+record.ID_Estudiante = generateId('EST', { year, month, sequence: nextSeq++ });
+// Example: EST2024010001, EST2024010002, etc.
+```
+
+## Import Best Practices
+
+<Warning>
+  - Always download and use the official template
+  - Review validation report carefully before importing
+  - Start with a small test batch (10-20 records)
+  - Keep a backup of your Excel file
+  - Check for duplicates in your source data
+</Warning>
+
+## Export System
+
+### Export Features
+
+- **Multiple Formats**: Excel (XLSX) or PDF
+- **Custom Columns**: Select which fields to export
+- **PDF Configuration**: Page size, orientation, font size
+- **Filtered Export**: Export search/filter results
+
+## Exporting Data
+
+<Steps>
+  <Step title="Open Export Modal">
+    From any entity list, click **Exportar**:
+
+    ```jsx
+    <button onClick={() => setIsExportModalOpen(true)}>
+        <Download size={18} /> Exportar
+    </button>
+    ```
+  </Step>
+
+  <Step title="Select Export Format">
+    Choose between Excel or PDF:
+
+    ```jsx
+    // Fronted/src/components/modals/ExportModal.jsx:95
+    <button onClick={() => setFormat('excel')}>
+        <FileSpreadsheet size={20} />
+        Excel - Hoja de cálculo .xlsx
+    </button>
+    
+    <button onClick={() => setFormat('pdf')}>
+        <FileText size={20} />
+        PDF - Documento portátil .pdf
+    </button>
+    ```
+  </Step>
+
+  <Step title="Configure PDF Options (If PDF)">
+    When PDF is selected, configure layout:
+
+    ```jsx
+    // Fronted/src/components/modals/ExportModal.jsx:135
+    <select onChange={(e) => setPdfConfig({ 
+        ...pdfConfig, 
+        pageSize: e.target.value 
+    })}>
+        <option value="letter">Letter</option>
+        <option value="a4">A4</option>
+        <option value="legal">Legal</option>
+    </select>
+    
+    <select onChange={(e) => setPdfConfig({ 
+        ...pdfConfig, 
+        orientation: e.target.value 
+    })}>
+        <option value="portrait">Vertical</option>
+        <option value="landscape">Horizontal</option>
+    </select>
+    
+    <input 
+        type="range" 
+        min="6" 
+        max="14" 
+        value={pdfConfig.fontSize}
+        onChange={(e) => setPdfConfig({ 
+            ...pdfConfig, 
+            fontSize: parseInt(e.target.value) 
+        })}
+    />
+    ```
+  </Step>
+
+  <Step title="Select Columns to Export">
+    Choose which fields to include:
+
+    ```jsx
+    // Fronted/src/components/modals/ExportModal.jsx:187
+    {availableColumns.map((col) => (
+        <div onClick={() => toggleColumn(col.key)}>
+            <span>{col.label}</span>
+            {isSelected && <Check size={12} />}
+        </div>
+    ))}
+    ```
+
+    Use **Marcar todo** / **Desmarcar todo** for quick selection.
+  </Step>
+
+  <Step title="Download File">
+    Click **Descargar** to generate and download the file:
+
+    ```javascript
+    // Fronted/src/components/modals/ExportModal.jsx:64
+    const handleExport = () => {
+        const colsToExport = availableColumns.filter(
+            col => selectedColumns.includes(col.key)
+        );
+        
+        if (format === 'excel') {
+            exportToExcel(data, colsToExport, sourceName);
+        } else {
+            exportToPDF(data, colsToExport, sourceName, pdfConfig);
+        }
+    };
+    ```
+  </Step>
+</Steps>
+
+## Excel Export
+
+### Export Implementation
+
+```javascript
+// Fronted/src/utils/exportUtils.js
+export function exportToExcel(data, columns, filename) {
+    // Prepare headers
+    const headers = columns.map(col => col.label);
+    
+    // Extract data
+    const rows = data.map(item => 
+        columns.map(col => item.raw?.[col.key] || item[col.key] || '')
+    );
+    
+    // Create workbook
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, filename);
+    
+    // Download
+    XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+```
+
+### Excel Features
+
+- Automatic column width adjustment
+- Header row formatting
+- Date formatting preservation
+- UTF-8 encoding for special characters
+
+## PDF Export
+
+### PDF Configuration
+
+The PDF export uses jsPDF with autoTable plugin:
+
+```javascript
+// Fronted/src/utils/exportUtils.js
+export function exportToPDF(data, columns, filename, config) {
+    const doc = new jsPDF({
+        orientation: config.orientation || 'portrait',
+        unit: 'mm',
+        format: config.pageSize || 'letter'
+    });
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text(filename, 14, 15);
+    
+    // Add table
+    doc.autoTable({
+        head: [columns.map(col => col.label)],
+        body: data.map(item => 
+            columns.map(col => item.raw?.[col.key] || item[col.key] || '')
+        ),
+        startY: 25,
+        styles: { fontSize: config.fontSize || 9 },
+        headStyles: { fillColor: [59, 130, 246] }
+    });
+    
+    doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+```
+
+### PDF Optimization Tips
+
+<Note>
+  - Use **landscape** orientation for many columns (>8)
+  - Reduce **font size** for dense data
+  - Select fewer columns for better readability
+  - Use **letter** or **legal** for wide tables
+</Note>
+
+```jsx
+// Auto-adjust orientation based on column count
+useEffect(() => {
+    if (selectedColumns.length > 8 && format === 'pdf') {
+        setPdfConfig(prev => ({ ...prev, orientation: 'landscape' }));
+    }
+}, [selectedColumns.length, format]);
+```
+
+## Exporting Filtered Data
+
+<Note>
+  The export modal automatically uses filtered/searched data when present.
+</Note>
+
+```jsx
+// Export only filtered results
+<ExportModal
+    isOpen={isExportModalOpen}
+    onClose={() => setIsExportModalOpen(false)}
+    data={processedStudents}  // Already filtered
+    sourceName="Estudiantes"
+/>
+```
+
+## Exporting Selected Records
+
+```jsx
+// Export only selected items
+const dataToExport = selectedIds.size > 0 
+    ? processedStudents.filter(s => selectedIds.has(s.id))
+    : processedStudents;
+
+<ExportModal data={dataToExport} />
+```
+
+## Column Auto-Detection
+
+<Note>
+  Available columns are automatically detected from the data.
+</Note>
+
+```javascript
+// Fronted/src/components/modals/ExportModal.jsx:24
+useEffect(() => {
+    if (isOpen && data && data.length > 0) {
+        const firstItem = data[0];
+        const sourceObject = firstItem.raw ? firstItem.raw : firstItem;
+        
+        // Exclude system fields
+        const blacklist = ['Fecha_Registro', 'Ultima_Actualizacion'];
+        const dynamicCols = Object.keys(sourceObject)
+            .filter(key => !blacklist.includes(key))
+            .map(key => ({
+                key: key,
+                label: key.replace(/_/g, ' ').toUpperCase()
+            }));
+        
+        setAvailableColumns(dynamicCols);
+        setSelectedColumns(dynamicCols.map(c => c.key));
+    }
+}, [isOpen, data]);
+```
+
+## Import Error Handling
+
+### Common Import Errors
+
+**Error:** "Documento duplicado"
+- **Cause:** ID number already exists in database
+- **Solution:** Remove duplicate from Excel or update existing record
+
+**Error:** "Email ya registrado"
+- **Cause:** Email address already exists
+- **Solution:** Use unique emails or remove duplicate
+
+**Error:** "Formato de Email inválido"
+- **Cause:** Email doesn't match pattern
+- **Solution:** Correct email format (user@domain.com)
+
+**Error:** "Campo requerido"
+- **Cause:** Required field is empty
+- **Solution:** Fill all required fields
+
+### Handling Import Failures
+
+If import fails midway:
+
+```javascript
+try {
+    await api.students.create(record);
+    success++;
+} catch (e) {
+    console.error('Import error for row', i, e);
+    // Continue with next record
+}
+```
+
+The system continues importing remaining valid records even if some fail.
+
+## Advanced Import Features
+
+### Smart Header Detection
+
+The system automatically finds the header row:
+
+```javascript
+// Fronted/src/pages/students/StudentImport.jsx:159
+let headerIdx = raw.findIndex(row =>
+    row.length > 2 && row.some(c => {
+        const s = String(c).toLowerCase();
+        return s.includes('nombre') || 
+               s.includes('apellido') || 
+               s.includes('documento');
+    })
+);
+```
+
+This allows Excel files with:
+- Title rows above the header
+- Empty rows at the top
+- Merged cells
+
+### Preview Table Features
+
+- **Row deletion**: Remove invalid rows
+- **Column deletion**: Remove unwanted fields
+- **Error highlighting**: Invalid cells shown in red
+- **Filter by errors**: Show only problematic records
+
+## Best Practices
+
+<Note>
+  **Import:**
+  - Use templates for consistent formatting
+  - Validate data before importing
+  - Start with small test batches
+  - Keep source file as backup
+  
+  **Export:**
+  - Select only needed columns
+  - Use Excel for data manipulation
+  - Use PDF for reports and printing
+  - Configure PDF layout for readability
+</Note>
+
+## Next Steps
+
+- Learn about [Managing Entities](/guides/managing-entities) for individual record operations
+- Explore [Search Functionality](/guides/search-functionality) to filter data before export
+- Review [Document Upload](/guides/document-upload) for file management

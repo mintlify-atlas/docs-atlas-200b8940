@@ -1,0 +1,335 @@
+---
+title: Student Management
+description: Complete student lifecycle management from enrollment to graduation
+icon: user-graduate
+---
+
+<Note>
+Manage student records, track academic progress, and handle cohort data across all program stages.
+</Note>
+
+## Overview
+
+The Student Management system provides comprehensive tools for managing student information, tracking academic status, and monitoring cohort progression from enrollment through graduation.
+
+## Student List View
+
+### Search & Filters
+
+<CardGroup cols={3}>
+  <Card title="Quick Search" icon="magnifying-glass">
+    Search by name or document number with real-time results
+  </Card>
+  <Card title="Status Filter" icon="filter">
+    Filter by: Cursando, Egresado, En Pausa, Retirado
+  </Card>
+  <Card title="Cohort Filter" icon="calendar">
+    View students by enrollment semester (e.g., 2024-1, 2024-2)
+  </Card>
+</CardGroup>
+
+```jsx
+// Filter example
+const [filterStatus, setFilterStatus] = useState('Todos');
+const [filterCohort, setFilterCohort] = useState('Todos');
+const [searchTerm, setSearchTerm] = useState('');
+```
+
+### Table Features
+
+The student table displays:
+
+| Column | Description |
+|--------|-------------|
+| **Código** | Student ID (e.g., EST-2024-01-001) |
+| **Estudiante** | Full name and email |
+| **Documento** | Document type and number |
+| **Trayectoria** | Entry cohort and graduation cohort with icons |
+| **Estado** | Status badge (color-coded) |
+| **Info** | Comments indicator (blue dot if comments exist) |
+| **Acciones** | View, Edit, Delete buttons + Drive folder link |
+
+  alt="Student table with cohort badges and status indicators"
+/>
+
+### Bulk Operations
+
+<Steps>
+  <Step title="Select Students">
+    Use checkboxes to select individual students or click the header checkbox to select all on the current page
+  </Step>
+  <Step title="Choose Action">
+    A floating dock appears at the bottom with options for Edit or Delete
+  </Step>
+  <Step title="Apply Changes">
+    Bulk edit opens a modal to update fields across all selected records
+  </Step>
+</Steps>
+
+<Warning>
+Bulk delete is permanent. A confirmation dialog will appear before deletion.
+</Warning>
+
+## Student Form
+
+### Form Sections
+
+The student form is organized into collapsible sections:
+
+#### 1. Identificación (Identification)
+
+- First name, second name, last names (letters only)
+- Document type: CC, TI, CE, PAS, PEP
+- Document number (auto-validates based on type)
+- Issue date and location
+- Gender and marital status
+- Date and place of birth
+- **Auto Drive Folder Creation**: Toggle to automatically create a Google Drive folder
+
+```jsx
+// Name validation
+const handleNameInput = (e) => {
+  const onlyLetters = /^[a-zA-Z\u00C0-\u00FF\s]*$/;
+  if (onlyLetters.test(value)) {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+};
+```
+
+#### 2. Contacto (Contact)
+
+- Mobile phone (required)
+- Email (required, validated)
+- Landline
+- Country/Nationality
+- Address, neighborhood, city, department
+- Socioeconomic stratum
+
+#### 3. Académico (Academic)
+
+- Entry cohort (e.g., 2024-1) - **required**
+- Entry date
+- Status dropdown with icons:
+  - 🟢 **Cursando** (Active)
+  - 🎓 **Egresado** (Graduated)
+  - ⏸️ **En Pausa** (Paused)
+  - ❌ **Retirado** (Withdrawn)
+  - 🔄 **Reingreso** (Re-entry)
+
+**Conditional Fields**:
+
+- If **Egresado**: Show graduation cohort and degree date
+- If **Retirado/En Pausa**: Show withdrawal reason field
+- If **Reingreso**: Show re-entry date and resolution number
+
+<Tip>
+The Drive folder integration section shows in the Academic tab. If a folder exists, you can open it directly. If not, click "GENERAR CARPETA" to create one.
+</Tip>
+
+#### 4. Laboral (Employment Tracking)
+
+- Employment status: Empleado, Independiente, Desempleado, Estudiante
+- Company name
+- Current position
+- Sector (Público, Privado, Mixto)
+- Salary range (< 1 SMMLV, 1-2 SMMLV, > 2 SMMLV)
+- Company phone
+
+#### 5. Observaciones (Comments)
+
+Free-text area for notes, observations, or special circumstances.
+
+### Document Management Tab
+
+When viewing/editing an existing student:
+
+<Tabs>
+  <Tab title="Información">
+    Student form with all sections
+  </Tab>
+  <Tab title="Documentos">
+    Document archive linked to the student's Drive folder
+  </Tab>
+</Tabs>
+
+The documents tab shows:
+
+- File uploader
+- Folder tree navigation
+- Document list with preview
+- Download and delete options
+
+## Import Students
+
+### Excel Import
+
+Navigate to **Students → Import** to upload a spreadsheet:
+
+<Steps>
+  <Step title="Download Template">
+    Click "Descargar Plantilla" to get the Excel template with required columns
+  </Step>
+  <Step title="Fill Data">
+    Complete all required fields: Nombre1, Apellido1, Cedula, Email, Cohorte_Ingreso
+  </Step>
+  <Step title="Upload File">
+    Drag and drop or click to select your Excel file (.xlsx, .xls)
+  </Step>
+  <Step title="Review & Import">
+    Preview detected records and click "Importar" to process
+  </Step>
+</Steps>
+
+<Warning>
+Duplicate document numbers will be skipped. The system shows which records were imported and which were rejected.
+</Warning>
+
+## Export Options
+
+### Export Modal
+
+Click **Exportar** to open the export wizard:
+
+<CardGroup cols={2}>
+  <Card title="Excel Export" icon="file-excel">
+    Download selected or all records as .xlsx with formatting
+  </Card>
+  <Card title="CSV Export" icon="file-csv">
+    Plain CSV format for data processing
+  </Card>
+</CardGroup>
+
+Export options:
+
+- **Current Selection**: Export only selected students (if any selected)
+- **Filtered Results**: Export all students matching current filters
+- **All Records**: Export entire database
+
+### Custom Columns
+
+Choose which fields to include in the export:
+
+```jsx
+const availableFields = [
+  'ID_Estudiante', 'Nombre1', 'Apellido1', 'Email',
+  'Cedula', 'Cohorte_Ingreso', 'Estado', 'Fecha_Egreso'
+];
+```
+
+## Status Badges
+
+Color-coded visual indicators:
+
+  alt="Student status badges with color coding"
+/>
+
+- 🟢 **Cursando**: Green badge with dot
+- 🔵 **Egresado**: Indigo/purple badge
+- 🟡 **En Pausa**: Amber badge
+- 🔴 **Retirado**: Red badge
+
+## Cohort Format
+
+Cohorts use the format `YYYY-S` where:
+
+- `YYYY` = Year (e.g., 2024)
+- `S` = Semester (1 or 2)
+
+Examples: `2024-1`, `2024-2`, `2023-2`
+
+```jsx
+const formatCohortDate = (val) => {
+  const d = new Date(val);
+  return `${d.getFullYear()}-${d.getMonth() + 1 <= 6 ? '1' : '2'}`;
+};
+```
+
+## ID Generation
+
+Student IDs are auto-generated when creating new records:
+
+```
+Format: EST-YYYY-MM-NNN
+Example: EST-2024-03-001
+
+- EST = Entity type (Estudiante)
+- YYYY = Year
+- MM = Month
+- NNN = Sequence number (auto-incremented)
+```
+
+Source: `Fronted/src/utils/idGenerator.js`
+
+## Drive Folder Integration
+
+<Note>
+Every student can have a dedicated Google Drive folder for document storage.
+</Note>
+
+### Automatic Creation
+
+When creating a student:
+
+1. Toggle "Carpeta de Drive" checkbox (enabled by default)
+2. On save, the system creates a folder structure:
+   ```
+   Estudiantes/
+     └── [Student Name] - [ID]/
+   ```
+3. The folder URL is saved to the student record
+
+### Manual Creation
+
+For existing students without folders:
+
+1. Open the student in edit mode
+2. Navigate to the **Académico** section
+3. Click **GENERAR CARPETA**
+4. Folder is created and linked automatically
+
+### Folder Access
+
+Access folders from:
+
+- Student table: Click the folder icon in the Actions column
+- Student form: Click "ABRIR CARPETA" in the Academic section
+- Documents tab: Built-in folder explorer
+
+## Notifications
+
+The system shows toast notifications for:
+
+<CardGroup cols={3}>
+  <Card title="Success" icon="check">
+    Student created, updated, or deleted successfully
+  </Card>
+  <Card title="Warning" icon="triangle-exclamation">
+    Validation errors or missing required fields
+  </Card>
+  <Card title="Error" icon="xmark">
+    Server errors or connection issues
+  </Card>
+</CardGroup>
+
+## Source Code Reference
+
+Key components:
+
+- Student list: `Fronted/src/pages/students/StudentList.jsx:17`
+- Student form: `Fronted/src/pages/students/StudentForm.jsx:28`
+- Import tool: `Fronted/src/pages/students/StudentImport.jsx`
+- API methods: `Fronted/src/services/api.js` (students namespace)
+
+## Related Features
+
+<CardGroup cols={3}>
+  <Card title="Dashboard" icon="chart-line" href="/features/dashboard">
+    View student analytics
+  </Card>
+  <Card title="Thesis Tracking" icon="book" href="/features/thesis-tracking">
+    Link thesis to students
+  </Card>
+  <Card title="Document Repository" icon="folder" href="/features/document-repository">
+    Manage student documents
+  </Card>
+</CardGroup>

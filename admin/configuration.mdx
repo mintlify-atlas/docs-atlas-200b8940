@@ -1,0 +1,220 @@
+---
+title: 'Configuration'
+description: 'System configuration options and environment setup for SGD-MCS'
+icon: 'gear'
+---
+
+## Overview
+
+SGD-MCS uses a centralized configuration system defined in `Backend/core/config.js`. All configuration constants, database mappings, and color schemes are defined here and automatically available across all Google Apps Script files.
+
+<Info>
+  The configuration file is loaded globally, so all constants are accessible in every `.gs` file without imports.
+</Info>
+
+## Core Configuration
+
+### Database Connection
+
+<ParamField path="SPREADSHEET_ID" type="string" required>
+  The Google Sheets spreadsheet ID that serves as the database.
+  
+  ```javascript
+  const SPREADSHEET_ID = '13DnE1bamQgWQ2G5cuGq9vdlP-tHu6QgdBtZptqKkLuc';
+  ```
+  
+  **Location:** Backend/core/config.js:11
+  
+  <Warning>
+    This is the most critical configuration value. If changed, the system will connect to a different database. Always back up before modifying.
+  </Warning>
+</ParamField>
+
+<ParamField path="ROOT_FOLDER_ID" type="string" default="">
+  The Google Drive folder ID where all system files are stored.
+  
+  ```javascript
+  const ROOT_FOLDER_ID = '1vlf1dwjSDa6pirU80HhCexpYvCOetWeb';
+  ```
+  
+  **Location:** Backend/core/config.js:14
+  
+  If left empty, the system will create a folder named `SGD_DATABASE_ROOT` in the user's Drive root.
+</ParamField>
+
+## Sheet Mappings
+
+The `SHEETS` object maps logical entity names to actual Google Sheets tab names:
+
+<ParamField path="SHEETS" type="object">
+  ```javascript
+  const SHEETS = {
+      ESTUDIANTES: 'Estudiantes',
+      DOCENTES: 'Docentes',
+      EXTERNOS: 'ParticipantesExternos',
+      INSTITUCIONES: 'Instituciones',
+      TESIS: 'Tesis',
+      EVENTOS: 'Eventos',
+      PARTICIPACIONES: 'Participaciones',
+      HISTORIAL: 'Historial_Documentos',
+      CONFIG: 'Configuracion'
+  };
+  ```
+  
+  **Location:** Backend/core/config.js:19-33
+</ParamField>
+
+### Sheet Structure
+
+| Constant | Tab Name | Purpose |
+|----------|----------|----------|
+| `ESTUDIANTES` | Estudiantes | Student records |
+| `DOCENTES` | Docentes | Faculty/advisor records |
+| `EXTERNOS` | ParticipantesExternos | External participants |
+| `INSTITUCIONES` | Instituciones | Partner institutions |
+| `TESIS` | Tesis | Thesis records |
+| `EVENTOS` | Eventos | Academic events |
+| `PARTICIPACIONES` | Participaciones | Event participation (M:N relation) |
+| `HISTORIAL` | Historial_Documentos | Document audit trail |
+| `CONFIG` | Configuracion | System counters and settings |
+
+<Warning>
+  Do not rename sheet tabs directly in Google Sheets. Update the `SHEETS` constant in `config.js` to maintain consistency.
+</Warning>
+
+## Color Palette
+
+The system uses a predefined color scheme for visual consistency:
+
+```javascript
+const COLORS = {
+    ESTUDIANTES: '#4285F4',    // Google Blue
+    DOCENTES: '#FF9800',       // Orange
+    TESIS: '#9C27B0',          // Purple
+    EVENTOS: '#E91E63',        // Pink
+    INSTITUCIONES: '#009688',  // Teal
+    EXTERNOS: '#8BC34A',       // Light Green
+    PARTICIPACIONES: '#607D8B', // Blue Grey
+    HISTORIAL: '#3F51B5',      // Indigo
+    CONFIG: '#263238'          // Dark Grey
+};
+```
+
+**Location:** Backend/core/config.js:38-50
+
+These colors are applied when regenerating the database structure using the Setup script.
+
+## Utility Functions
+
+### getDB()
+
+Returns the database spreadsheet instance:
+
+```javascript
+function getDB() {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+```
+
+**Usage:** Use this instead of `SpreadsheetApp.openById()` throughout your code.
+
+### getAppConfig()
+
+Returns the complete configuration object for the frontend:
+
+```javascript
+function getAppConfig() {
+    return {
+        appVersion: '3.0.0',
+        environment: 'Production',
+        sheets: SHEETS,
+        colors: COLORS
+    };
+}
+```
+
+## Time Zone Configuration
+
+The system timezone is configured in `appsscript.json`:
+
+```json
+{
+  "timeZone": "America/Bogota"
+}
+```
+
+**Location:** Backend/appsscript.json:2
+
+All timestamps use this timezone for consistency.
+
+## Environment Variables
+
+<Steps>
+  <Step title="Set Spreadsheet ID">
+    Update `SPREADSHEET_ID` in `config.js` with your Google Sheets database ID.
+  </Step>
+  
+  <Step title="Configure Drive Folder">
+    Update `ROOT_FOLDER_ID` with your Google Drive folder ID, or leave empty for auto-creation.
+  </Step>
+  
+  <Step title="Deploy Script">
+    Push changes to Google Apps Script using clasp or the web editor.
+  </Step>
+  
+  <Step title="Verify Setup">
+    Test configuration by calling `getAppConfig()` from the Apps Script editor.
+  </Step>
+</Steps>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Version Control">
+    Always commit configuration changes to version control with clear documentation of what changed and why.
+  </Accordion>
+  
+  <Accordion title="Environment Separation">
+    Use separate spreadsheets and folders for development, staging, and production environments.
+  </Accordion>
+  
+  <Accordion title="Backup Before Changes">
+    Create a backup copy of the spreadsheet before modifying critical configuration values.
+  </Accordion>
+  
+  <Accordion title="Test Configuration">
+    After changing configuration, test all CRUD operations to ensure connectivity.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<Card title="Database Connection Failed" icon="circle-exclamation">
+  **Symptom:** Functions return errors about missing spreadsheet
+  
+  **Solution:** Verify `SPREADSHEET_ID` is correct and the service account has access.
+</Card>
+
+<Card title="Drive Folder Not Found" icon="folder-xmark">
+  **Symptom:** Files cannot be uploaded or organized
+  
+  **Solution:** Check `ROOT_FOLDER_ID` exists and has proper permissions, or set to empty string for auto-creation.
+</Card>
+
+<Card title="Sheet Not Found" icon="table">
+  **Symptom:** Operations fail with "Sheet not found" errors
+  
+  **Solution:** Ensure all sheet names in `SHEETS` constant match actual tab names in the spreadsheet exactly.
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Structure" icon="database" href="/admin/database-structure">
+    Learn about the database schema and sheet structure
+  </Card>
+  
+  <Card title="Google Apps Script" icon="google" href="/admin/google-apps-script">
+    Deploy and manage the Apps Script backend
+  </Card>
+</CardGroup>

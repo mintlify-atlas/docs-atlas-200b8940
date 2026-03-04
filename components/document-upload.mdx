@@ -1,0 +1,417 @@
+---
+title: DocumentUpload
+description: Drag-and-drop file upload component with document classification
+---
+
+## Overview
+
+The `DocumentUpload` component provides a user-friendly file upload interface with drag-and-drop support, document type classification, and automatic metadata extraction. Files are uploaded to the document history system with UUID-based naming.
+
+**Location**: `~/workspace/source/Fronted/src/components/common/DocumentUpload.jsx:6`
+
+## Features
+
+- Drag-and-drop file upload interface
+- Click-to-browse file selection
+- Document type classification dropdown
+- File metadata extraction (size, type, extension)
+- UUID-based file naming for uniqueness
+- Upload progress indication
+- File preview before upload
+- Dark mode support
+- Responsive design
+
+## Props
+
+<ParamField path="onSuccess" type="function">
+  Callback function invoked after successful file upload
+  
+  ```jsx
+  onSuccess={() => {
+    console.log('Upload completed');
+    refreshDocumentList();
+  }}
+  ```
+</ParamField>
+
+<ParamField path="beneficiaryId" type="string">
+  The ID of the beneficiary/entity associated with the document. Defaults to 'GUEST' if not provided
+</ParamField>
+
+<ParamField path="beneficiaryName" type="string">
+  The name of the beneficiary/entity. Defaults to 'Anónimo' if not provided
+</ParamField>
+
+## Import
+
+```jsx
+import DocumentUpload from './components/common/DocumentUpload';
+```
+
+## Usage Examples
+
+<Tabs>
+  <Tab title="Basic Usage">
+    ```jsx
+    import DocumentUpload from './components/common/DocumentUpload';
+
+    function DocumentManager() {
+      const handleUploadSuccess = () => {
+        console.log('Document uploaded successfully');
+      };
+
+      return (
+        <div className="p-6">
+          <h2>Subir Documento</h2>
+          <DocumentUpload onSuccess={handleUploadSuccess} />
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="With Beneficiary">
+    ```jsx
+    import DocumentUpload from './components/common/DocumentUpload';
+
+    function StudentDocuments({ student }) {
+      const refreshDocuments = () => {
+        // Reload document list
+        fetchStudentDocuments(student.id);
+      };
+
+      return (
+        <div>
+          <h3>Documentos de {student.name}</h3>
+          
+          <DocumentUpload
+            beneficiaryId={student.id}
+            beneficiaryName={`${student.firstName} ${student.lastName}`}
+            onSuccess={refreshDocuments}
+          />
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="In Modal">
+    ```jsx
+    import { useState } from 'react';
+    import DocumentUpload from './components/common/DocumentUpload';
+
+    function UploadModal({ isOpen, onClose, entityId, entityName }) {
+      if (!isOpen) return null;
+
+      const handleSuccess = () => {
+        onClose();
+        // Refresh parent component
+      };
+
+      return (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Cargar Documento</h2>
+            
+            <DocumentUpload
+              beneficiaryId={entityId}
+              beneficiaryName={entityName}
+              onSuccess={handleSuccess}
+            />
+            
+            <button onClick={onClose}>Cancelar</button>
+          </div>
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Anonymous Upload">
+    ```jsx
+    import DocumentUpload from './components/common/DocumentUpload';
+
+    function GuestUpload() {
+      return (
+        <div className="guest-upload-container">
+          <p className="text-sm text-slate-500 mb-4">
+            Subiendo como invitado - el documento se registrará como anónimo
+          </p>
+          
+          <DocumentUpload
+            onSuccess={() => alert('Documento guardado')}
+          />
+        </div>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Document Types
+
+The component provides a predefined list of document types:
+
+- **Cédula**: Identity card documents
+- **Tesis / Proyecto**: Thesis or project documents
+- **Acta de Grado**: Graduation records
+- **Diploma**: Diploma certificates
+- **Certificado**: General certificates
+- **Otros**: Other document types (default)
+
+## Visual States
+
+### Empty State (No File Selected)
+
+Displays:
+- Upload icon with green background
+- "Arrastra tu archivo aquí" heading
+- "O toca para buscar en tu equipo" subtext
+- Interactive drop zone
+
+### Active Drag State
+
+- Green border color
+- Light green background tint
+- Visual feedback for drag-over
+
+### File Selected State
+
+Displays:
+- File icon and metadata card
+- File name (truncated if long)
+- File size in KB
+- Remove file button (X icon)
+- Document type selector dropdown
+- "Confirmar Carga" button
+
+### Uploading State
+
+- Disabled upload button
+- Animated spinner icon
+- "Subiendo..." text
+- Prevents multiple submissions
+
+## Upload Flow
+
+1. **File Selection**: User drags file or clicks to browse
+2. **File Validation**: File is set in component state
+3. **Type Selection**: User selects document type from dropdown
+4. **Confirmation**: User clicks "Confirmar Carga"
+5. **Metadata Generation**:
+   - UUID is generated using `crypto.randomUUID()`
+   - File extension is extracted
+   - File size is calculated in MB
+   - MIME type is captured
+6. **API Upload**: Document record is created via `api.history.create()`
+7. **Success Handling**:
+   - Success toast notification
+   - File state is cleared
+   - `onSuccess` callback is invoked
+
+## File Metadata Structure
+
+The component generates comprehensive file metadata:
+
+```jsx
+// From DocumentUpload.jsx:41-47
+const fileData = {
+    url: `https://storage.nexodo.com/archives/${uuid}.${file.name.split('.').pop()}`,
+    peso: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+    tipo_mime: file.type,
+    nombre_original: file.name,
+    extension: file.name.split('.').pop()
+};
+```
+
+## API Payload
+
+The component sends the following payload to the history API:
+
+```javascript
+{
+  ID_Documento: "550e8400-e29b-41d4-a716-446655440000", // UUID
+  ID_Beneficiario: "STU123", // or 'GUEST'
+  Nombre_Beneficiario: "Juan Pérez", // or 'Anónimo'
+  Tipo_Documento: "Cédula",
+  Usuario_Emisor: "Admin",
+  Detalle_Origen: "Carga Manual",
+  Detalles_JSON: "{\"url\":\"https://storage.nexodo.com/archives/...\", ...}",
+  Fecha_Registro: "2026-03-04T10:30:00.000Z"
+}
+```
+
+## Event Handlers
+
+### Drag Events
+
+```jsx
+// From DocumentUpload.jsx:13-18
+const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
+};
+```
+
+### Drop Event
+
+```jsx
+// From DocumentUpload.jsx:20-27
+const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        setFile(e.dataTransfer.files[0]);
+    }
+};
+```
+
+### File Input Change
+
+```jsx
+// From DocumentUpload.jsx:29-34
+const handleChange = (e) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files[0]) {
+        setFile(e.target.files[0]);
+    }
+};
+```
+
+## Styling Features
+
+### Responsive Design
+- Mobile-friendly layout
+- Touch-friendly drop zone
+- Responsive button sizing
+
+### Animations
+- Fade-in animation for file preview
+- Scale effect on button hover
+- Smooth transitions between states
+
+### Dark Mode
+- Complete dark mode support
+- Appropriate contrast ratios
+- Consistent theming with light mode
+
+## Error Handling
+
+<AccordionGroup>
+  <Accordion title="Upload Failures">
+    If the API call fails, an error toast is displayed:
+    
+    ```jsx
+    toast.error('Error', 'No se pudo subir el archivo.');
+    ```
+    
+    The uploading state is cleared, allowing the user to retry.
+  </Accordion>
+  
+  <Accordion title="Missing File">
+    The upload button is only active when a file is selected. The `handleUpload` function includes a guard:
+    
+    ```jsx
+    if (!file) return;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Security Considerations
+
+### UUID-Based Naming
+Files are renamed using UUID v4 to:
+- Prevent filename collisions
+- Avoid path traversal attacks
+- Ensure uniqueness across the system
+
+```jsx
+const uuid = crypto.randomUUID();
+const fileData = {
+    url: `https://storage.nexodo.com/archives/${uuid}.${file.name.split('.').pop()}`
+};
+```
+
+### File Validation
+
+<Note>
+The current implementation does not validate file types or sizes. Consider adding:
+- File size limits
+- MIME type validation
+- File extension whitelist
+- Malware scanning integration
+</Note>
+
+## Dependencies
+
+- **lucide-react**: Icons (Upload, X, FileText, CheckCircle, AlertCircle, Loader2)
+- **api.history.create()**: History API service
+- **toast**: SweetAlert2 utility for notifications
+- **crypto.randomUUID()**: Native browser UUID generation
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Provide Beneficiary Context">
+    When possible, provide `beneficiaryId` and `beneficiaryName` to properly track document ownership:
+    
+    ```jsx
+    <DocumentUpload
+      beneficiaryId={user.id}
+      beneficiaryName={user.fullName}
+      onSuccess={refreshList}
+    />
+    ```
+  </Accordion>
+  
+  <Accordion title="Implement onSuccess Callback">
+    Always implement the `onSuccess` callback to refresh document lists or close modals:
+    
+    ```jsx
+    <DocumentUpload
+      onSuccess={() => {
+        fetchDocuments();
+        setShowModal(false);
+      }}
+    />
+    ```
+  </Accordion>
+  
+  <Accordion title="Add File Validation">
+    Consider extending the component to validate:
+    - Maximum file size (e.g., 10MB limit)
+    - Allowed file types (e.g., PDF, DOCX, images only)
+    - File name sanitization
+  </Accordion>
+  
+  <Accordion title="Handle Upload Progress">
+    For large files, consider integrating upload progress tracking:
+    
+    ```jsx
+    const [progress, setProgress] = useState(0);
+    
+    // Use XMLHttpRequest or fetch with progress events
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Accessibility
+
+- Hidden file input with ref-based triggering
+- Keyboard accessible buttons
+- Semantic HTML structure
+- Clear visual feedback for all states
+- Disabled state properly communicated
+
+## Notes
+
+<Warning>
+The component hardcodes the storage URL (`https://storage.nexodo.com/archives/`) and some fields like `Usuario_Emisor: 'Admin'`. Consider making these configurable via props or environment variables.
+</Warning>
+
+<Info>
+The component uses `crypto.randomUUID()` which requires a secure context (HTTPS) in production environments.
+</Info>

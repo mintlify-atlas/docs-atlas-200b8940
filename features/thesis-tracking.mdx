@@ -1,0 +1,360 @@
+---
+title: Thesis Tracking
+description: Comprehensive thesis and research project management system
+icon: book-open
+---
+
+<Note>
+Track thesis projects from proposal to defense, including advisors, students, and document management.
+</Note>
+
+## Overview
+
+The Thesis Tracking module provides end-to-end management of Master's thesis projects, including progress monitoring, advisor assignment, and defense scheduling.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Project Status" icon="list-check">
+    Track thesis stages: Pendiente, En Desarrollo, Sustentada, Reprobada
+  </Card>
+  <Card title="Student & Advisor Linking" icon="users">
+    Associate students with advisors and track relationships
+  </Card>
+  <Card title="Research Modalities" icon="flask">
+    Support for Investigación, Práctica, and Emprendimiento
+  </Card>
+  <Card title="Document Repository" icon="folder-open">
+    Dedicated Drive folder for each thesis with version control
+  </Card>
+</CardGroup>
+
+## Thesis List View
+
+### Card Layout
+
+Thesis are displayed in a responsive card grid:
+
+  alt="Thesis cards showing title, student, advisor, and status"
+/>
+
+Each card shows:
+
+- **Year & Modality**: Top badge (e.g., "2024 • Investigación")
+- **Thesis ID**: Color-coded identifier (e.g., TES-2024-03-001)
+- **Title**: Research project title (uppercase, truncated to 2 lines)
+- **Student Name**: With award icon 🏆
+- **Advisor Name**: With graduation cap icon 🎓
+- **Status Badge**: Color-coded current status
+- **Quick Actions**: Folder, View, Edit, Delete (visible on hover)
+
+### Status Badges
+
+| Status | Color | Description |
+|--------|-------|-------------|
+| **Pendiente** | Gray | Awaiting approval or start |
+| **En Desarrollo** | Amber | Active research phase |
+| **Sustentada** | Green | Successfully defended |
+| **Reprobada** | Red | Defense failed or rejected |
+
+```jsx
+const getStatusBadge = (status) => {
+  const styles = {
+    'En Desarrollo': 'bg-amber-500/10 text-amber-700',
+    'Sustentada': 'bg-emerald-500/10 text-emerald-700',
+    'Pendiente': 'bg-slate-500/10 text-slate-700',
+    'Reprobada': 'bg-red-500/10 text-red-700'
+  };
+  return <span className={styles[status]}>● {status.toUpperCase()}</span>;
+};
+```
+
+## Filters & Search
+
+### Available Filters
+
+<Tabs>
+  <Tab title="Status">
+    - Todos (All)
+    - En Desarrollo
+    - Sustentada
+    - Reprobada
+  </Tab>
+  <Tab title="Year">
+    Dynamic list of years from thesis database
+  </Tab>
+  <Tab title="Modality">
+    - Todos (All)
+    - Investigación (Research)
+    - Práctica (Practice-based)
+    - Emprendimiento (Entrepreneurship)
+  </Tab>
+</Tabs>
+
+### Search Bar
+
+Search by:
+
+- Thesis title (partial match)
+- Student name
+- Advisor name
+
+```jsx
+const processedThesis = useMemo(() => {
+  return rawThesis.filter(thesis => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      thesis.titulo.toLowerCase().includes(searchLower) ||
+      thesis.estudiante.toLowerCase().includes(searchLower)
+    );
+  });
+}, [rawThesis, searchTerm]);
+```
+
+## Thesis Form
+
+### Basic Information
+
+<Steps>
+  <Step title="Project Title">
+    Full research title (required)
+  </Step>
+  <Step title="Student Selection">
+    Link to existing student record or enter name
+  </Step>
+  <Step title="Advisor Assignment">
+    Select primary advisor from faculty list
+  </Step>
+  <Step title="Co-Advisors">
+    Optional: Add up to 2 co-advisors
+  </Step>
+</Steps>
+
+### Research Details
+
+#### Modality Selection
+
+<CardGroup cols={3}>
+  <Card title="Investigación" icon="microscope">
+    Original research with academic contributions
+  </Card>
+  <Card title="Práctica" icon="laptop-code">
+    Applied project solving real-world problems
+  </Card>
+  <Card title="Emprendimiento" icon="rocket">
+    Startup or business innovation project
+  </Card>
+</CardGroup>
+
+#### Additional Fields
+
+- **Línea de Investigación**: Research line or area
+- **Palabras Clave**: Keywords (comma-separated)
+- **Abstract**: Project summary (500-1000 words)
+- **Metodología**: Research methodology
+
+### Timeline & Dates
+
+  alt="Timeline showing proposal, development, and defense dates"
+/>
+
+- **Fecha_Propuesta**: Proposal submission date
+- **Fecha_Inicio**: Official start date
+- **Fecha_Defensa_Prevista**: Expected defense date
+- **Fecha_Defensa_Real**: Actual defense date
+- **Año**: Academic year (auto-filled from dates)
+
+### Defense Information
+
+#### Jury Members
+
+Assign evaluation committee:
+
+```jsx
+{
+  Jurado_1: "Dr. María González",
+  Jurado_2: "Dr. Carlos Ruiz",
+  Jurado_3: "Dr. Ana Martínez"
+}
+```
+
+#### Grades & Results
+
+- **Calificación**: Final grade (0-100)
+- **Concepto**: Pass/Fail/Distinction
+- **Observaciones**: Jury comments and recommendations
+
+<Warning>
+Once a thesis status is set to "Sustentada", it's considered final. Ensure all information is correct before updating.
+</Warning>
+
+## Document Management
+
+### Thesis Folder Structure
+
+Each thesis has a dedicated Drive folder:
+
+```
+Tesis/
+  └── [Year]/
+      └── [Student Name] - [Thesis ID]/
+          ├── Propuesta/
+          ├── Borradores/
+          ├── Documento Final/
+          ├── Presentación/
+          └── Actas y Formatos/
+```
+
+### Uploading Documents
+
+<Steps>
+  <Step title="Open Thesis">
+    Navigate to thesis detail or edit view
+  </Step>
+  <Step title="Documents Tab">
+    Click the "Documentos" tab
+  </Step>
+  <Step title="Upload Files">
+    Drag and drop or click to select files
+  </Step>
+  <Step title="Organize">
+    Files are uploaded to the appropriate subfolder
+  </Step>
+</Steps>
+
+### Supported File Types
+
+- 📄 **Documents**: PDF, DOCX, DOC
+- 📊 **Presentations**: PPTX, PPT
+- 📈 **Data**: XLSX, CSV
+- 🖼️ **Images**: PNG, JPG, JPEG
+- 📦 **Archives**: ZIP
+
+<Tip>
+Version control is automatic. When uploading a file with the same name, the system creates a numbered version.
+</Tip>
+
+## Bulk Operations
+
+### Selecting Multiple Thesis
+
+Use the checkbox button in the search bar or click individual checkboxes on cards.
+
+### Available Actions
+
+- **Bulk Delete**: Remove multiple thesis records
+- **Bulk Export**: Export selected thesis data
+- **Status Update**: Change status of multiple thesis (via bulk edit modal)
+
+  alt="Multiple thesis selected with floating action dock"
+/>
+
+## Import Thesis
+
+### Excel Template
+
+Download template with columns:
+
+```
+Titulo_Investigacion, Nombre_Estudiante, Nombre_Asesor,
+Modalidad, Estado_Tesis, Año, Fecha_Inicio, Fecha_Defensa
+```
+
+### Import Process
+
+1. Fill template with thesis data
+2. Upload via **Thesis → Import**
+3. System validates:
+   - Student exists in database
+   - Advisor exists in database
+   - Valid dates and status
+4. Auto-creates thesis IDs
+5. Links to Drive folders (optional)
+
+<Warning>
+If student or advisor names don't match existing records, the import will create placeholder entries that need manual verification.
+</Warning>
+
+## Export Options
+
+### Export Formats
+
+<CardGroup cols={2}>
+  <Card title="Excel" icon="file-excel">
+    Formatted spreadsheet with all thesis data
+  </Card>
+  <Card title="CSV" icon="file-csv">
+    Plain text format for data analysis
+  </Card>
+</CardGroup>
+
+### Export Filters
+
+- Selected thesis only
+- Filtered results
+- All thesis
+- By year or status
+
+### Included Data
+
+```jsx
+const exportFields = [
+  'ID_Tesis', 'Titulo_Investigacion', 'Nombre_Estudiante',
+  'Nombre_Asesor', 'Modalidad', 'Estado_Tesis', 'Año',
+  'Fecha_Inicio', 'Fecha_Defensa', 'Calificación'
+];
+```
+
+## Notifications
+
+<CardGroup cols={3}>
+  <Card title="Status Change" icon="bell">
+    When thesis moves to a new stage
+  </Card>
+  <Card title="Defense Reminder" icon="calendar-check">
+    7 days before scheduled defense
+  </Card>
+  <Card title="Document Upload" icon="file-arrow-up">
+    When new documents are added
+  </Card>
+</CardGroup>
+
+## Pagination
+
+Default: **8 thesis per page**
+
+Options:
+
+- 8 (default)
+- 16
+- 32
+- Todos (All)
+
+Grid automatically adjusts:
+
+- **Desktop**: 2 columns (XL screens)
+- **Tablet**: 1 column
+- **Mobile**: 1 column
+
+## Source Code Reference
+
+Key files:
+
+- Thesis list: `Fronted/src/pages/thesis/ThesisList.jsx:15`
+- Thesis form: `Fronted/src/pages/thesis/ThesisForm.jsx`
+- Import tool: `Fronted/src/pages/thesis/ThesisImport.jsx`
+- API service: `api.thesis` namespace
+
+## Related Features
+
+<CardGroup cols={3}>
+  <Card title="Student Management" icon="user-graduate" href="/features/student-management">
+    View linked student records
+  </Card>
+  <Card title="Teacher Management" icon="chalkboard-user" href="/features/teacher-management">
+    Manage thesis advisors
+  </Card>
+  <Card title="Document Repository" icon="folder" href="/features/document-repository">
+    Access all thesis documents
+  </Card>
+</CardGroup>

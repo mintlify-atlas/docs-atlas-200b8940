@@ -1,0 +1,481 @@
+---
+title: 'Permissions & Access Control'
+description: 'User roles, OAuth scopes, and security configuration for SGD-MCS'
+icon: 'lock'
+---
+
+## Overview
+
+SGD-MCS implements a multi-layered security model using Google Workspace permissions, OAuth 2.0 scopes, and Apps Script execution policies.
+
+<Warning>
+  By default, the web app allows anonymous access. Configure appropriate restrictions for production environments.
+</Warning>
+
+## Access Control Levels
+
+### 1. Google Sheets Permissions
+
+The underlying Google Sheets database uses standard Google Drive sharing:
+
+<AccordionGroup>
+  <Accordion title="Owner">
+    Full control over the spreadsheet:
+    - Edit all data and structure
+    - Manage sharing settings
+    - Delete the database
+    - View version history
+    
+    **Recommended for:** System administrators only
+  </Accordion>
+  
+  <Accordion title="Editor">
+    Can modify data but not sharing:
+    - Create, read, update, delete records
+    - Upload and organize files
+    - Cannot change sharing permissions
+    - Cannot delete the spreadsheet
+    
+    **Recommended for:** Program coordinators, administrative staff
+  </Accordion>
+  
+  <Accordion title="Viewer">
+    Read-only access:
+    - View all data
+    - Export and download
+    - Cannot modify anything
+    
+    **Recommended for:** Auditors, read-only analysts
+  </Accordion>
+  
+  <Accordion title="No Access">
+    Cannot see the spreadsheet:
+    - No visibility into data
+    - Cannot interact with the system
+    
+    **Recommended for:** External users, public
+  </Accordion>
+</AccordionGroup>
+
+### 2. Google Drive Folder Permissions
+
+The `ROOT_FOLDER_ID` folder contains all entity documents:
+
+```javascript
+const ROOT_FOLDER_ID = '1vlf1dwjSDa6pirU80HhCexpYvCOetWeb';
+```
+
+**Location:** Backend/core/config.js:14
+
+<Steps>
+  <Step title="Open Drive Folder">
+    Navigate to the folder in Google Drive using the `ROOT_FOLDER_ID`.
+  </Step>
+  
+  <Step title="Share Folder">
+    Right-click → Share → Add people or groups
+  </Step>
+  
+  <Step title="Set Permissions">
+    - **Editor:** Can upload, organize, and delete files
+    - **Viewer:** Can only view and download files
+    - **No access:** Cannot see any documents
+  </Step>
+  
+  <Step title="Apply to Subfolders">
+    Ensure permissions cascade to all entity folders (Estudiantes, Docentes, etc.)
+  </Step>
+</Steps>
+
+<Warning>
+  If users cannot upload files, verify they have Editor access to the Drive folder, not just the spreadsheet.
+</Warning>
+
+### 3. Apps Script Execution Mode
+
+Configured in `appsscript.json`:
+
+```json
+"webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE_ANONYMOUS"
+}
+```
+
+**Location:** Backend/appsscript.json:11-14
+
+<ParamField path="executeAs" type="enum" default="USER_DEPLOYING">
+  Determines whose permissions are used when running the script:
+  
+  - **`USER_DEPLOYING`** - Script runs with deployer's permissions (recommended)
+    - All users share the same data access level
+    - Deployer must have Editor access to Sheets and Drive
+    - Simpler security model
+  
+  - **`USER_ACCESSING`** - Script runs with each user's own permissions
+    - Users can only access data they personally have permission to see
+    - More complex to manage
+    - Better for multi-tenant scenarios
+</ParamField>
+
+<ParamField path="access" type="enum" default="ANYONE_ANONYMOUS">
+  Controls who can access the web app:
+  
+  - **`ANYONE_ANONYMOUS`** - Anyone with the URL (no login required)
+    - Completely public
+    - No authentication
+    - Use only for demos or internal networks
+  
+  - **`ANYONE`** - Anyone with a Google account (login required)
+    - Must sign in with Google
+    - Email is captured for audit logs
+    - Recommended for production
+  
+  - **`DOMAIN`** - Only users in your Google Workspace organization
+    - Must be part of your domain (e.g., @university.edu)
+    - Best security for organizational use
+    - Recommended for enterprise deployments
+  
+  - **`MYSELF`** - Only the deployer can access
+    - For testing and development only
+</ParamField>
+
+## Recommended Production Configuration
+
+For a secure production deployment:
+
+```json
+"webapp": {
+    "executeAs": "USER_DEPLOYING",
+    "access": "DOMAIN"
+}
+```
+
+This ensures:
+- Only organization members can access
+- All actions are logged with user emails
+- Consistent data access across users
+- Deployer controls permissions via Sheet/Drive sharing
+
+## OAuth 2.0 Scopes
+
+The script requests specific permissions from Google:
+
+```json
+"oauthScopes": [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/script.external_request"
+]
+```
+
+**Location:** Backend/appsscript.json:6-10
+
+### Scope Breakdown
+
+<Card title="spreadsheets - Full Sheets Access" icon="table">
+  **Scope:** `https://www.googleapis.com/auth/spreadsheets`
+  
+  **Allows:**
+  - Read all data from the database spreadsheet
+  - Create, update, delete student, faculty, thesis, and event records
+  - Increment ID counters in the Config sheet
+  - Write audit logs to Historial_Documentos
+  
+  **Why Required:** Core database operations
+  
+  **Risk:** Can modify or delete all spreadsheet data
+</Card>
+
+<Card title="drive - Drive File Management" icon="folder">
+  **Scope:** `https://www.googleapis.com/auth/drive`
+  
+  **Allows:**
+  - Create folders for entities (students, thesis, events)
+  - Upload documents and certificates
+  - Organize files into structured directories
+  - Move folders to trash on entity deletion
+  - List and search files
+  
+  **Why Required:** Document management features
+  
+  **Risk:** Can access and modify all files in user's Drive (when `executeAs: USER_DEPLOYING`, this is the deployer's Drive)
+  
+  <Warning>
+    This scope grants broad Drive access. Ensure the deploying account is trusted and secure.
+  </Warning>
+</Card>
+
+<Card title="script.external_request - HTTP Requests" icon="globe">
+  **Scope:** `https://www.googleapis.com/auth/script.external_request`
+  
+  **Allows:**
+  - Make HTTP requests to external APIs
+  - Webhook integrations
+  - Third-party service connections
+  
+  **Why Required:** Future extensibility (currently optional)
+  
+  **Risk:** Low - only allows making outbound requests
+</Card>
+
+## Authorization Flow
+
+<Steps>
+  <Step title="Initial Deployment">
+    When first deploying the script, the deployer must authorize the requested OAuth scopes.
+  </Step>
+  
+  <Step title="Consent Screen">
+    Google displays a consent screen listing all requested permissions:
+    - View and manage spreadsheets
+    - View and manage files in Google Drive
+    - Connect to external services
+  </Step>
+  
+  <Step title="Grant Access">
+    Click "Allow" to grant the script these permissions.
+    
+    <Warning>
+      If you see "This app isn't verified", click "Advanced" → "Go to [App Name] (unsafe)" - this is normal for internal scripts.
+    </Warning>
+  </Step>
+  
+  <Step title="Token Storage">
+    Google stores the authorization token. The script can now access Sheets and Drive on behalf of the deployer.
+  </Step>
+</Steps>
+
+## User Authentication
+
+The system captures user identity for audit logging:
+
+```javascript
+const userEmail = Session.getActiveUser().getEmail() || 'Sistema/Anónimo';
+```
+
+**Location:** Backend/utils/Utils.js:102
+
+### Authentication by Access Level
+
+| `webapp.access` | User Identity | Audit Trail |
+|-----------------|---------------|-------------|
+| `ANYONE_ANONYMOUS` | Empty string or "Anonymous" | ❌ Not available |
+| `ANYONE` | Google account email | ✅ Full email captured |
+| `DOMAIN` | Organization email | ✅ Full email captured |
+| `MYSELF` | Deployer email | ✅ Always known |
+
+<Info>
+  For proper audit trails, always use `ANYONE` or `DOMAIN` access levels in production.
+</Info>
+
+## Audit Logging
+
+All entity and document operations are logged:
+
+```javascript
+function logDocumentAction(params) {
+    const userEmail = Session.getActiveUser().getEmail() || 'Sistema/Anónimo';
+    const uuid = Utilities.getUuid();
+    const timestamp = new Date();
+
+    sheet.appendRow([
+        uuid,
+        params.action,           // ENTITY_CREATE, UPLOAD_FILE, etc.
+        params.entityId,         // ID_Estudiante, ID_Tesis, etc.
+        params.entityName,       // Name of affected entity
+        params.type,             // entity, file, folder
+        JSON.stringify(params.details),
+        timestamp,
+        userEmail                // Who performed the action
+    ]);
+}
+```
+
+**Location:** Backend/utils/Utils.js:96-128
+
+### Logged Actions
+
+- `ENTITY_CREATE` - New student, faculty, thesis, or event created
+- `ENTITY_UPDATE` - Existing record modified
+- `UPLOAD_FILE` - Document uploaded to entity folder
+- `SYNC_FOLDER` - Drive folder created or linked
+- `DELETE_ENTITY_FOLDER` - Folder moved to trash
+
+<Card title="View Audit Logs" icon="list">
+  Open the Google Sheets database and navigate to the **Historial_Documentos** tab to view all logged actions.
+</Card>
+
+## Role-Based Access (Future Enhancement)
+
+Currently, SGD-MCS uses Google Workspace permissions for access control. For finer-grained role-based access:
+
+### Proposed Roles
+
+<AccordionGroup>
+  <Accordion title="Administrator">
+    Full system access:
+    - Manage all entities
+    - Configure system settings
+    - View audit logs
+    - Manage user permissions
+  </Accordion>
+  
+  <Accordion title="Coordinator">
+    Program management:
+    - Create/edit students, faculty, thesis
+    - Organize events
+    - Upload documents
+    - View reports
+  </Accordion>
+  
+  <Accordion title="Faculty">
+    Limited access:
+    - View assigned students
+    - Update thesis progress
+    - Upload thesis documents
+  </Accordion>
+  
+  <Accordion title="Student">
+    Self-service:
+    - View own profile
+    - View thesis information
+    - Download certificates
+    - Upload documents (with approval)
+  </Accordion>
+</AccordionGroup>
+
+### Implementation Approach
+
+1. Add a `Roles` sheet to the database
+2. Store user email → role mappings
+3. Implement authorization checks in API functions:
+   ```javascript
+   function requireRole(email, allowedRoles) {
+       const userRole = getUserRole(email);
+       if (!allowedRoles.includes(userRole)) {
+           throw new Error('Unauthorized');
+       }
+   }
+   ```
+4. Wrap sensitive operations with role checks
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use DOMAIN Access for Production">
+    Restrict access to your organization:
+    ```json
+    "access": "DOMAIN"
+    ```
+    This prevents external users from accessing the system.
+  </Accordion>
+  
+  <Accordion title="Secure the Deployer Account">
+    The deployer account has full access when using `USER_DEPLOYING`:
+    - Use a strong, unique password
+    - Enable 2-factor authentication
+    - Use a service account for production (advanced)
+  </Accordion>
+  
+  <Accordion title="Regularly Review Sharing Settings">
+    Periodically audit who has access to:
+    - The database spreadsheet
+    - The Drive root folder
+    - Individual entity folders
+  </Accordion>
+  
+  <Accordion title="Monitor Audit Logs">
+    Review the Historial_Documentos sheet for:
+    - Unusual deletion patterns
+    - Bulk updates from unexpected users
+    - Access during off-hours
+  </Accordion>
+  
+  <Accordion title="Backup Regularly">
+    Create periodic backups:
+    1. File → Make a copy (for spreadsheet)
+    2. Copy the entire Drive folder structure
+    3. Store backups in a secure location
+  </Accordion>
+</AccordionGroup>
+
+## Testing Permissions
+
+<Steps>
+  <Step title="Test as Different Users">
+    Deploy the web app and access it from different Google accounts to verify access controls.
+  </Step>
+  
+  <Step title="Verify Sheet Permissions">
+    Ensure non-editors cannot modify data directly in the spreadsheet.
+  </Step>
+  
+  <Step title="Test Drive Upload">
+    Verify that users with Editor access can upload files, while Viewers cannot.
+  </Step>
+  
+  <Step title="Check Audit Logs">
+    Perform test actions and verify they appear in Historial_Documentos with correct user emails.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Card title="Authorization Required Error" icon="lock">
+  **Symptom:** "Authorization required to perform that action"
+  
+  **Cause:** OAuth token expired or not granted
+  
+  **Solution:**
+  1. Open the Apps Script editor
+  2. Run any function manually
+  3. Complete the authorization flow
+  4. Redeploy the web app
+</Card>
+
+<Card title="User Email Shows as Empty" icon="user-xmark">
+  **Symptom:** Audit logs show "Sistema/Anónimo" for all actions
+  
+  **Cause:** Using `ANYONE_ANONYMOUS` access mode
+  
+  **Solution:** Change `webapp.access` to `"ANYONE"` or `"DOMAIN"` in appsscript.json
+</Card>
+
+<Card title="Permission Denied When Uploading" icon="ban">
+  **Symptom:** Users cannot upload files to entity folders
+  
+  **Cause:** Insufficient Drive permissions
+  
+  **Solution:**
+  1. Verify `ROOT_FOLDER_ID` folder has Editor sharing
+  2. Check that permissions cascade to subfolders
+  3. Ensure `drive` OAuth scope is authorized
+</Card>
+
+<Card title="Cannot Access from Organization" icon="building">
+  **Symptom:** Users in organization see "Access Denied"
+  
+  **Cause:** Script set to `MYSELF` or not deployed correctly
+  
+  **Solution:**
+  1. Verify `webapp.access` is `"DOMAIN"`
+  2. Ensure deployment is set as "New deployment", not "Test deployment"
+  3. Share the correct deployment URL
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Configure database and system settings
+  </Card>
+  
+  <Card title="Database Structure" icon="database" href="/admin/database-structure">
+    Understand the database schema
+  </Card>
+  
+  <Card title="Google Apps Script" icon="google" href="/admin/google-apps-script">
+    Deploy and manage the backend
+  </Card>
+</CardGroup>

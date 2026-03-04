@@ -1,0 +1,347 @@
+---
+title: 'Managing Entities'
+description: 'Complete guide to creating, updating, and deleting entities in SGD-MCS'
+icon: 'users'
+---
+
+## Overview
+
+SGD-MCS manages five types of entities: Students (Estudiantes), Teachers (Docentes), Thesis (Tesis), External Collaborators (Externos), and Events (Eventos). Each entity type has its own CRUD operations and automatic Google Drive folder management.
+
+## Entity Architecture
+
+The system uses a universal entity management pattern:
+
+- **Backend**: `Backend/core/EntityManager.js` - Universal CRUD logic
+- **Frontend**: Entity-specific list and form components
+- **Storage**: Google Sheets + Google Drive folders
+
+## Entity Types
+
+### Students (Estudiantes)
+
+Students represent graduate program participants tracked through their academic journey.
+
+**Key Fields:**
+- `ID_Estudiante` - Auto-generated unique identifier
+- `Nombre1`, `Apellido1` - Required name fields
+- `Cedula` - Identity document number
+- `Email` - Contact email
+- `Cohorte_Ingreso` - Entry cohort (e.g., "2023-1")
+- `Estado` - Status: Cursando, Egresado, En Pausa, Retirado
+- `ID_Carpeta_Drive` - Associated Drive folder
+
+### Teachers (Docentes)
+
+Faculty members associated with the program.
+
+**Key Fields:**
+- `ID_Docente` - Auto-generated identifier
+- `Nombre1`, `Apellido1` - Name fields
+- `Email` - Contact email
+- `Tipo_Vinculacion` - Employment type
+- `Area_Conocimiento` - Expertise area
+
+### Thesis (Tesis)
+
+Research projects and dissertations.
+
+**Key Fields:**
+- `ID_Tesis` - Unique identifier
+- `Titulo_Investigacion` - Research title
+- `Nombre_Estudiante` - Associated student
+- `Año` - Year
+- `Calificacion` - Grade
+
+### External Collaborators (Externos)
+
+External partners and evaluators.
+
+### Events (Eventos)
+
+Academic events and activities.
+
+## Creating Entities
+
+<Steps>
+  <Step title="Navigate to Entity List">
+    Go to the entity list page (e.g., `/students` for students). Click the **Nuevo** button in the top right corner.
+
+    ```jsx
+    <Link to="/students/new" className="...">
+        <Plus size={20} /> Nuevo
+    </Link>
+    ```
+  </Step>
+
+  <Step title="Fill Entity Form">
+    Complete all required fields marked with an asterisk (*). The system validates:
+    - Required fields are not empty
+    - Email format is correct
+    - Document numbers are unique
+    - Dates are in valid format
+  </Step>
+
+  <Step title="Automatic ID Generation">
+    Entity IDs are auto-generated using a sequential pattern:
+
+    ```javascript
+    // Backend/core/EntityManager.js:31
+    const idField = `ID_${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+    if (!data[idField] || data[idField] === "") {
+        data[idField] = generateUniqueId(prefix, counter);
+    }
+    ```
+
+    Example IDs:
+    - Students: `EST0001`, `EST0002`
+    - Teachers: `DOC0001`, `DOC0002`
+    - Thesis: `TES0001`, `TES0002`
+  </Step>
+
+  <Step title="Drive Folder Creation">
+    When creating an entity, a Google Drive folder is automatically created:
+
+    ```javascript
+    // Backend/core/EntityManager.js:39
+    if (data._createFolder !== false) {
+        const folderInfo = createEntityFolder(type, data);
+        data.ID_Carpeta_Drive = folderInfo.id;
+        data.URL_Carpeta_Drive = folderInfo.url;
+    }
+    ```
+
+    Folder structure example:
+    ```
+    SGD_DATABASE_ROOT/
+    └── Estudiantes/
+        └── 2024-1/
+            └── EST0001 - Juan Perez/
+    ```
+  </Step>
+
+  <Step title="Save Entity">
+    Click **Guardar** to create the entity. The system will:
+    1. Validate all data
+    2. Generate unique ID
+    3. Create Drive folder
+    4. Save to Google Sheets
+    5. Log audit trail
+  </Step>
+</Steps>
+
+## Updating Entities
+
+<Steps>
+  <Step title="Access Edit Mode">
+    From the entity list, click the **Edit** icon (pencil) next to any record.
+
+    ```jsx
+    // Fronted/src/pages/students/StudentList.jsx:404
+    <Link to={`/students/edit/${student.id}`} className="...">
+        <Edit size={18} />
+    </Link>
+    ```
+  </Step>
+
+  <Step title="Modify Fields">
+    Update any field except the primary ID. Changes are tracked automatically:
+
+    ```javascript
+    // Backend/core/EntityManager.js:112
+    if (header === 'Ultima_Actualizacion') {
+        val = Utilities.formatDate(new Date(), ...);
+    }
+    if (header === 'Ultimo_Usuario') {
+        val = Session.getActiveUser().getEmail();
+    }
+    ```
+  </Step>
+
+  <Step title="Sync Drive Folder (Optional)">
+    If the Drive folder is missing or unlinked, the system can recreate it:
+
+    ```javascript
+    // Backend/core/EntityManager.js:121
+    if (folderCol > -1 && !values[rowIndex - 1][folderCol]) {
+        syncEntityFolder(type, id);
+    }
+    ```
+  </Step>
+
+  <Step title="Save Changes">
+    Click **Actualizar** to save. An audit log entry is automatically created at `Backend/core/EntityManager.js:126`.
+  </Step>
+</Steps>
+
+## Deleting Entities
+
+<Warning>
+  Deleting an entity also moves its Google Drive folder to trash. This action cannot be easily undone.
+</Warning>
+
+<Steps>
+  <Step title="Single Delete">
+    Click the **Trash** icon next to the entity. Confirm the deletion.
+
+    ```javascript
+    // Fronted/src/pages/students/StudentList.jsx:82
+    const handleDelete = async (id) => {
+        const result = await toast.confirm(
+            '¿Estás seguro?',
+            'Esta acción eliminará al estudiante permanentemente.'
+        );
+        if (result.isConfirmed) {
+            await api.students.delete(id);
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Bulk Delete">
+    Select multiple entities using checkboxes, then click **Eliminar** in the floating action dock.
+
+    ```javascript
+    // Fronted/src/pages/students/StudentList.jsx:98
+    const handleBulkDelete = async () => {
+        const idsArray = Array.from(selectedIds);
+        await api.students.bulkDelete(idsArray);
+    }
+    ```
+  </Step>
+
+  <Step title="Backend Processing">
+    The backend deletes the Sheet row and trashes the Drive folder:
+
+    ```javascript
+    // Backend/core/EntityManager.js:164
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(id)) {
+            if (folderIdCol > -1 && data[i][folderIdCol]) {
+                deleteEntityFolder(data[i][folderIdCol]);
+            }
+            sheet.deleteRow(i + 1);
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Bulk Operations
+
+### Bulk Update
+
+Update multiple entities at once:
+
+<Steps>
+  <Step title="Select Entities">
+    Check multiple entities in the list view. A floating dock appears showing the selection count.
+  </Step>
+
+  <Step title="Open Bulk Edit Modal">
+    Click **Editar** in the floating dock. The bulk edit modal opens.
+  </Step>
+
+  <Step title="Choose Fields to Update">
+    Select which fields to modify and enter new values. The changes will apply to all selected entities.
+  </Step>
+
+  <Step title="Confirm Changes">
+    Click **Aplicar Cambios**. The system updates all selected entities:
+
+    ```javascript
+    // Backend/core/EntityManager.js:179
+    function bulkUpdateItems(type, ids, updates) {
+        let count = 0;
+        ids.forEach(id => {
+            const res = updateItem(type, id, updates);
+            if (res.success) count++;
+        });
+        return { success: true, message: `Se actualizaron ${count} registros.` };
+    }
+    ```
+  </Step>
+</Steps>
+
+## Filtering and Search
+
+The list view provides powerful filtering:
+
+```jsx
+// Fronted/src/pages/students/StudentList.jsx:152
+const processedStudents = useMemo(() => {
+    return rawStudents.filter(student => {
+        return (
+            student.nombre.toLowerCase().includes(searchTerm.toLowerCase()) &&
+            (filterStatus === 'Todos' || student.estado === filterStatus) &&
+            (filterCohort === 'Todos' || student.cohorteIn === filterCohort)
+        );
+    });
+}, [rawStudents, searchTerm, filterStatus, filterCohort]);
+```
+
+### Available Filters
+
+- **Search**: By name or document number
+- **Status**: Cursando, Egresado, En Pausa, Retirado
+- **Cohort**: Entry semester/year
+- **Document Type**: CC, TI, CE, PAS
+
+## Pagination
+
+Lists are automatically paginated for performance:
+
+```jsx
+// Fronted/src/pages/students/StudentList.jsx:163
+const indexOfLastItem = currentPage * itemsPerPage;
+const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+const currentItems = processedStudents.slice(indexOfFirstItem, indexOfLastItem);
+```
+
+Users can choose items per page: 10, 20, 50, 100, or All.
+
+## Data Validation
+
+All entity operations include validation:
+
+- **Required fields**: Must be present and non-empty
+- **Email format**: Validated using regex
+- **Unique constraints**: Document numbers and emails must be unique
+- **Date formats**: Auto-converted to ISO format
+
+## Audit Trail
+
+Every entity operation is logged:
+
+```javascript
+// Backend/core/EntityManager.js:61
+logDocumentAction({
+    action: 'ENTITY_CREATE',
+    type: 'entity',
+    id: data[idField],
+    entityType: type,
+    details: { context: 'Creación manual desde formulario' }
+});
+```
+
+Audit logs include:
+- Action type (CREATE, UPDATE, DELETE)
+- Timestamp
+- User email
+- Entity ID and type
+- Additional context
+
+## Best Practices
+
+<Note>
+  - Always verify entity data before bulk operations
+  - Use filters to find specific records quickly
+  - Check Drive folder links regularly to ensure sync
+  - Export important data before performing bulk deletes
+</Note>
+
+## Next Steps
+
+- Learn about [Document Upload](/guides/document-upload) to manage files within entities
+- Explore [Drive Integration](/guides/drive-integration) for advanced folder management
+- Review [Import/Export](/guides/import-export) for bulk data operations

@@ -1,0 +1,494 @@
+---
+title: "DataService"
+description: "Bulk data retrieval for entity listings"
+---
+
+## Overview
+
+DataService provides simple, efficient functions to retrieve complete lists of entities from the database. These functions are optimized for populating tables, dropdowns, and dashboards.
+
+**Source**: `~/workspace/source/Backend/services/DataService.js`
+
+<Note>
+All DataService functions return JSON strings that must be parsed on the frontend.
+</Note>
+
+---
+
+## listStudents
+
+Retrieves all students from the database.
+
+<ResponseField name="data" type="string" required>
+  JSON string containing array of all student records
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonData) => {
+    const students = JSON.parse(jsonData);
+    console.log(`Total students: ${students.length}`);
+    
+    // Access student data
+    students.forEach(student => {
+      console.log(`${student.ID_Estudiante}: ${student.Nombre1} ${student.Apellido1}`);
+      console.log(`  Cohort: ${student.Cohorte_Ingreso}`);
+      console.log(`  Status: ${student.Estado}`);
+      console.log(`  Email: ${student.Email}`);
+    });
+  })
+  .listStudents();
+
+// Sample output:
+// Total students: 42
+// EST0001: Juan Pérez
+//   Cohort: 2024-1
+//   Status: Activo
+//   Email: juan.perez@example.com
+```
+
+### Frontend alias
+
+From `Main.js:25`:
+
+```javascript
+// Can also be called as:
+google.script.run.getStudents();
+```
+
+---
+
+## listTeachers
+
+Retrieves all teachers/faculty members from the database.
+
+<ResponseField name="data" type="string" required>
+  JSON string containing array of all teacher records
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonData) => {
+    const teachers = JSON.parse(jsonData);
+    
+    // Populate dropdown with teacher options
+    const selectElement = document.getElementById('teacher-select');
+    teachers.forEach(teacher => {
+      const option = document.createElement('option');
+      option.value = teacher.ID_Docente;
+      option.text = `${teacher.Nombre1} ${teacher.Apellido1} - ${teacher.Especialidad}`;
+      selectElement.add(option);
+    });
+  })
+  .listTeachers();
+```
+
+### Frontend alias
+
+From `Main.js:26`:
+
+```javascript
+google.script.run.getTeachers();
+```
+
+---
+
+## listExterns
+
+Retrieves all external evaluators from the database.
+
+<ResponseField name="data" type="string" required>
+  JSON string containing array of all external evaluator records
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonData) => {
+    const externals = JSON.parse(jsonData);
+    
+    // Create table rows
+    const tbody = document.querySelector('#externals-table tbody');
+    externals.forEach(ext => {
+      const row = tbody.insertRow();
+      row.innerHTML = `
+        <td>${ext.ID_Externo}</td>
+        <td>${ext.Nombre1} ${ext.Apellido1}</td>
+        <td>${ext.Institucion}</td>
+        <td>${ext.Email}</td>
+      `;
+    });
+  })
+  .listExterns();
+```
+
+### Frontend alias
+
+From `Main.js:27`:
+
+```javascript
+google.script.run.getExterns();
+```
+
+---
+
+## listThesis
+
+Retrieves all thesis records from the database.
+
+<ResponseField name="data" type="string" required>
+  JSON string containing array of all thesis records
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonData) => {
+    const thesisList = JSON.parse(jsonData);
+    
+    // Filter by status
+    const activeThesis = thesisList.filter(t => t.Estado === 'En Progreso');
+    const completedThesis = thesisList.filter(t => t.Estado === 'Aprobada');
+    
+    console.log(`Active: ${activeThesis.length}`);
+    console.log(`Completed: ${completedThesis.length}`);
+    
+    // Display thesis list
+    thesisList.forEach(thesis => {
+      console.log(`${thesis.ID_Tesis}: ${thesis.Titulo_Investigacion}`);
+      console.log(`  Student: ${thesis.Nombre_Estudiante}`);
+      console.log(`  Year: ${thesis.Año}`);
+      console.log(`  Grade: ${thesis.Calificacion || 'N/A'}`);
+    });
+  })
+  .listThesis();
+```
+
+### Frontend alias
+
+From `Main.js:28`:
+
+```javascript
+google.script.run.getThesis();
+```
+
+---
+
+## listEvents
+
+Retrieves all academic events from the database.
+
+<ResponseField name="data" type="string" required>
+  JSON string containing array of all event records
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonData) => {
+    const events = JSON.parse(jsonData);
+    
+    // Sort by date (most recent first)
+    events.sort((a, b) => {
+      const dateA = parseDate(a.Fecha);
+      const dateB = parseDate(b.Fecha);
+      return dateB - dateA;
+    });
+    
+    // Display upcoming events
+    const today = new Date();
+    const upcoming = events.filter(evt => {
+      const eventDate = parseDate(evt.Fecha);
+      return eventDate >= today;
+    });
+    
+    console.log(`Upcoming events: ${upcoming.length}`);
+    upcoming.forEach(evt => {
+      console.log(`${evt.Fecha}: ${evt.Nombre_Evento}`);
+      console.log(`  Type: ${evt.Tipo}`);
+    });
+  })
+  .listEvents();
+```
+
+### Frontend alias
+
+From `Main.js:29`:
+
+```javascript
+google.script.run.getEvents();
+```
+
+---
+
+## listParticipations
+
+Retrieves all participation records (linking students/teachers to events).
+
+<ResponseField name="data" type="string" required>
+  JSON string containing array of all participation records
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonData) => {
+    const participations = JSON.parse(jsonData);
+    
+    // Group by event
+    const byEvent = {};
+    participations.forEach(p => {
+      const eventId = p.ID_Evento;
+      if (!byEvent[eventId]) {
+        byEvent[eventId] = [];
+      }
+      byEvent[eventId].push(p);
+    });
+    
+    // Show participation count per event
+    Object.keys(byEvent).forEach(eventId => {
+      const count = byEvent[eventId].length;
+      console.log(`Event ${eventId}: ${count} participants`);
+    });
+  })
+  .listParticipations();
+```
+
+### Frontend alias
+
+From `Main.js:30`:
+
+```javascript
+google.script.run.getParticipations();
+```
+
+---
+
+## listDocuments
+
+Retrieves the document history/audit log.
+
+<ResponseField name="data" type="string" required>
+  JSON string containing array of all document history records
+</ResponseField>
+
+### Example
+
+```javascript
+google.script.run
+  .withSuccessHandler((jsonData) => {
+    const documents = JSON.parse(jsonData);
+    
+    // Show recent activity
+    const recent = documents.slice(0, 10);
+    console.log('Recent activity:');
+    recent.forEach(doc => {
+      console.log(`${doc.Fecha_Hora}: ${doc.Accion}`);
+      console.log(`  User: ${doc.Usuario}`);
+      console.log(`  Entity: ${doc.Tipo_Entidad} ${doc.ID_Entidad}`);
+      console.log(`  Details: ${doc.Detalles}`);
+    });
+  })
+  .listDocuments();
+```
+
+### Frontend alias
+
+From `Main.js:31`:
+
+```javascript
+google.script.run.getDocuments();
+```
+
+---
+
+## Data Structure
+
+All functions return the raw Sheet data as arrays of objects where:
+
+- **Keys**: Column headers from the Google Sheet
+- **Values**: Cell values (strings, numbers, dates)
+
+### Example Record Structure
+
+```javascript
+// Student record
+{
+  "ID_Estudiante": "EST0001",
+  "Nombre1": "Juan",
+  "Nombre2": "Carlos",
+  "Apellido1": "Pérez",
+  "Apellido2": "García",
+  "Cedula": "1234567890",
+  "Email": "juan.perez@example.com",
+  "Cohorte_Ingreso": "2024-1",
+  "Estado": "Activo",
+  "ID_Carpeta_Drive": "1a2b3c4d5e6f7g8h9i0j",
+  "URL_Carpeta_Drive": "https://drive.google.com/...",
+  "Fecha_Registro": "15/06/2024 10:30:00",
+  "Usuario_Registro": "admin@example.com",
+  "Ultima_Actualizacion": "20/06/2024 14:15:00",
+  "Ultimo_Usuario": "admin@example.com"
+}
+```
+
+---
+
+## Implementation Details
+
+### getSimpleData Helper
+
+From `DataService.js:6-32`, all list functions use:
+
+```javascript
+return JSON.stringify(getSimpleData(getDB().getSheetByName(SHEETS.ESTUDIANTES)));
+```
+
+The `getSimpleData()` helper:
+1. Reads entire sheet including headers
+2. Converts to array of objects (header → value mapping)
+3. Returns structured data
+
+### Performance
+
+<Note>
+**Data Loading:**
+- Reads entire sheet on each call
+- No caching implemented
+- Suitable for datasets up to ~5000 records
+- Consider caching results on frontend for 5-10 minutes
+</Note>
+
+### Frontend Caching Example
+
+```javascript
+// Simple cache implementation
+const cache = {
+  students: null,
+  timestamp: null,
+  maxAge: 5 * 60 * 1000 // 5 minutes
+};
+
+function getStudentsCached() {
+  return new Promise((resolve, reject) => {
+    const now = Date.now();
+    
+    // Return cached data if fresh
+    if (cache.students && (now - cache.timestamp) < cache.maxAge) {
+      resolve(cache.students);
+      return;
+    }
+    
+    // Fetch fresh data
+    google.script.run
+      .withSuccessHandler((jsonData) => {
+        cache.students = JSON.parse(jsonData);
+        cache.timestamp = now;
+        resolve(cache.students);
+      })
+      .withFailureHandler(reject)
+      .listStudents();
+  });
+}
+```
+
+---
+
+## Usage Patterns
+
+### Populating Tables
+
+```javascript
+function loadStudentTable() {
+  google.script.run
+    .withSuccessHandler((jsonData) => {
+      const students = JSON.parse(jsonData);
+      const table = $('#students-table').DataTable();
+      table.clear();
+      students.forEach(s => {
+        table.row.add([
+          s.ID_Estudiante,
+          `${s.Nombre1} ${s.Apellido1}`,
+          s.Email,
+          s.Cohorte_Ingreso,
+          s.Estado
+        ]);
+      });
+      table.draw();
+    })
+    .listStudents();
+}
+```
+
+### Building Dropdowns
+
+```javascript
+function populateTeacherDropdown(selectId) {
+  google.script.run
+    .withSuccessHandler((jsonData) => {
+      const teachers = JSON.parse(jsonData);
+      const select = document.getElementById(selectId);
+      
+      // Clear existing options
+      select.innerHTML = '<option value="">-- Select Teacher --</option>';
+      
+      // Add teacher options
+      teachers.forEach(t => {
+        const option = new Option(
+          `${t.Nombre1} ${t.Apellido1}`,
+          t.ID_Docente
+        );
+        select.add(option);
+      });
+    })
+    .listTeachers();
+}
+```
+
+### Dashboard Statistics
+
+```javascript
+async function loadDashboardStats() {
+  const [students, thesis, events] = await Promise.all([
+    fetchList('listStudents'),
+    fetchList('listThesis'),
+    fetchList('listEvents')
+  ]);
+  
+  document.getElementById('total-students').textContent = students.length;
+  document.getElementById('active-thesis').textContent = 
+    thesis.filter(t => t.Estado === 'En Progreso').length;
+  document.getElementById('upcoming-events').textContent = 
+    events.filter(e => parseDate(e.Fecha) >= new Date()).length;
+}
+
+function fetchList(functionName) {
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(json => resolve(JSON.parse(json)))
+      .withFailureHandler(reject)
+      [functionName]();
+  });
+}
+```
+
+---
+
+## Related Services
+
+<CardGroup cols={2}>
+  <Card title="SearchService" icon="magnifying-glass" href="/api/search-service">
+    Search for specific entities instead of loading all
+  </Card>
+  <Card title="EntityManager" icon="database" href="/api/entity-manager">
+    Create, update, and delete entities
+  </Card>
+</CardGroup>
